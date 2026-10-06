@@ -1,0 +1,8 @@
+-- AlterTable
+ALTER TABLE "Document"
+  ADD COLUMN "description" TEXT,
+  ALTER COLUMN "originalName" DROP NOT NULL,
+  ALTER COLUMN "mimeType" DROP NOT NULL,
+  ALTER COLUMN "size" DROP NOT NULL,
+  ALTER COLUMN "filePath" DROP NOT NULL,
+  ALTER COLUMN "status" SET DEFAULT 'PENDING';

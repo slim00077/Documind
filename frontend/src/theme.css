@@ -1,0 +1,272 @@
+/* --- Theme tokens & dark mode overrides ---
+   The rest of the app's CSS (App.css) was written with literal colors.
+   Rather than rewrite every rule, this file adds a dark palette scoped
+   under [data-theme="dark"] on <html>, using the same selectors so the
+   cascade (loaded after App.css) overrides them without touching the
+   original file. */
+
+:root {
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+  color: #13213f;
+}
+
+body {
+  background: #ffffff;
+  transition: background-color .2s ease;
+}
+
+:root[data-theme="dark"] body {
+  background: #0b1120;
+}
+
+:root[data-theme="dark"] {
+  color: #e2e8f0;
+}
+
+:root[data-theme="dark"] .app-content {
+  color: #e2e8f0;
+}
+
+/* --- Animated background --- */
+:root[data-theme="dark"] .background-base {
+  background:
+    radial-gradient(circle at 15% 15%, rgba(96, 165, 250, 0.14), transparent 28%),
+    radial-gradient(circle at 85% 20%, rgba(139, 92, 246, 0.14), transparent 30%),
+    radial-gradient(circle at 75% 75%, rgba(6, 182, 212, 0.1), transparent 30%),
+    radial-gradient(circle at 20% 85%, rgba(236, 72, 153, 0.08), transparent 28%),
+    linear-gradient(135deg, #0b1120 0%, #0f172a 45%, #111527 100%);
+}
+
+/* --- Surfaces: cards, panels, inputs --- */
+:root[data-theme="dark"] .auth-card,
+:root[data-theme="dark"] .feature-card,
+:root[data-theme="dark"] .step-card,
+:root[data-theme="dark"] .workspace-panel,
+:root[data-theme="dark"] .metric-card,
+:root[data-theme="dark"] .settings-card,
+:root[data-theme="dark"] .empty-state,
+:root[data-theme="dark"] .assistant-workspace,
+:root[data-theme="dark"] .main-sidebar,
+:root[data-theme="dark"] .assistant-history-sidebar,
+:root[data-theme="dark"] .document-row,
+:root[data-theme="dark"] .search-result-card,
+:root[data-theme="dark"] .category-row,
+:root[data-theme="dark"] .modal-card,
+:root[data-theme="dark"] .assistant-panel,
+:root[data-theme="dark"] .toast,
+:root[data-theme="dark"] .admin-card,
+:root[data-theme="dark"] .admin-table-wrap {
+  background: rgba(23, 29, 46, .82);
+  border-color: rgba(100, 116, 139, .28);
+}
+
+:root[data-theme="dark"] .pipeline-stage,
+:root[data-theme="dark"] .tab-strip {
+  background: rgba(30, 37, 58, .7);
+  border-color: rgba(100, 116, 139, .25);
+}
+
+:root[data-theme="dark"] .tab-strip-item.active {
+  background: rgba(30, 41, 59, .9);
+}
+
+:root[data-theme="dark"] .auth-input,
+:root[data-theme="dark"] .search-field,
+:root[data-theme="dark"] .file-drop,
+:root[data-theme="dark"] .file-chip {
+  background: rgba(17, 24, 39, .75);
+  border-color: rgba(100, 116, 139, .32);
+  color: #e2e8f0;
+}
+
+:root[data-theme="dark"] .filter-select {
+  color: #e2e8f0;
+}
+
+:root[data-theme="dark"] .extracted-text {
+  background: rgba(17, 24, 39, .75);
+  border-color: rgba(100, 116, 139, .3);
+  color: #cbd5e1;
+}
+
+/* --- Text colors --- */
+:root[data-theme="dark"] .auth-title,
+:root[data-theme="dark"] .page-heading h1,
+:root[data-theme="dark"] .workspace-panel h2,
+:root[data-theme="dark"] .empty-state h2,
+:root[data-theme="dark"] .settings-card h2,
+:root[data-theme="dark"] .metric-card strong,
+:root[data-theme="dark"] .document-row-info strong,
+:root[data-theme="dark"] .search-result-doc,
+:root[data-theme="dark"] .insights-list dd,
+:root[data-theme="dark"] .pipeline-stage-count,
+:root[data-theme="dark"] .brand,
+:root[data-theme="dark"] .activity-feed-body strong,
+:root[data-theme="dark"] .assistant-history-sidebar h2,
+:root[data-theme="dark"] .assistant-history-title,
+:root[data-theme="dark"] .chat-source strong {
+  color: #f1f5f9;
+}
+
+:root[data-theme="dark"] .auth-hint,
+:root[data-theme="dark"] .auth-footer,
+:root[data-theme="dark"] .page-heading p:not(.section-kicker),
+:root[data-theme="dark"] .workspace-panel > p,
+:root[data-theme="dark"] .settings-card p,
+:root[data-theme="dark"] .metric-card span,
+:root[data-theme="dark"] .metric-card small,
+:root[data-theme="dark"] .document-row-info span,
+:root[data-theme="dark"] .search-result-snippet,
+:root[data-theme="dark"] .insights-list dt,
+:root[data-theme="dark"] .pipeline-stage span:last-child,
+:root[data-theme="dark"] .user-details span,
+:root[data-theme="dark"] .workspace-header span,
+:root[data-theme="dark"] .activity-feed-body span,
+:root[data-theme="dark"] .activity-feed-time,
+:root[data-theme="dark"] .documents-summary,
+:root[data-theme="dark"] .chat-message-assistant {
+  color: #94a3b8;
+}
+
+:root[data-theme="dark"] .sidebar-link {
+  color: #94a3b8;
+}
+
+:root[data-theme="dark"] .sidebar-link:hover {
+  color: #e2e8f0;
+  background: rgba(51, 65, 85, .5);
+}
+
+:root[data-theme="dark"] .sidebar-link.active {
+  color: #c7d2fe;
+  background: linear-gradient(90deg, rgba(79, 70, 229, .3), rgba(99, 102, 241, .14));
+}
+
+:root[data-theme="dark"] .chat-message-assistant {
+  background: rgba(30, 41, 59, .85);
+  border-color: rgba(100, 116, 139, .25);
+  color: #e2e8f0;
+}
+
+:root[data-theme="dark"] .chat-typing {
+  background: rgba(30, 41, 59, .85);
+}
+
+:root[data-theme="dark"] .button-secondary {
+  color: #cbd5e1;
+  background: rgba(30, 41, 59, .7);
+  border-color: rgba(100, 116, 139, .3);
+}
+
+:root[data-theme="dark"] .icon-button {
+  color: #64748b;
+  background: rgba(30, 41, 59, .6);
+  border-color: rgba(100, 116, 139, .3);
+}
+
+:root[data-theme="dark"] .status-pending { color: #94a3b8; background: rgba(100, 116, 139, .22); }
+:root[data-theme="dark"] .status-uploaded { color: #93c5fd; background: rgba(37, 99, 235, .2); }
+:root[data-theme="dark"] .status-processing { color: #fcd34d; background: rgba(217, 119, 6, .2); }
+:root[data-theme="dark"] .status-ready,
+:root[data-theme="dark"] .status-completed { color: #86efac; background: rgba(21, 128, 61, .22); }
+:root[data-theme="dark"] .status-failed { color: #fca5a5; background: rgba(185, 28, 28, .22); }
+
+:root[data-theme="dark"] .processing-error,
+:root[data-theme="dark"] .auth-error {
+  background: rgba(185, 28, 28, .18);
+  border-color: rgba(239, 68, 68, .3);
+  color: #fca5a5;
+}
+
+:root[data-theme="dark"] .toast span {
+  color: #e2e8f0;
+}
+
+:root[data-theme="dark"] .site-footer {
+  border-color: rgba(100, 116, 139, .22);
+}
+
+:root[data-theme="dark"] .site-footer-column a,
+:root[data-theme="dark"] .welcome-nav nav a {
+  color: #94a3b8;
+}
+
+:root[data-theme="dark"] .skeleton {
+  background: linear-gradient(90deg, rgba(51, 65, 85, .5) 25%, rgba(71, 85, 105, .6) 37%, rgba(51, 65, 85, .5) 63%);
+}
+
+/* --- Admin area --- */
+:root[data-theme="dark"] .admin-table th {
+  color: #94a3b8;
+  border-color: rgba(100, 116, 139, .25);
+}
+
+:root[data-theme="dark"] .admin-table td {
+  border-color: rgba(100, 116, 139, .18);
+  color: #e2e8f0;
+}
+
+:root[data-theme="dark"] .admin-table tr:hover td {
+  background: rgba(51, 65, 85, .35);
+}
+
+/* --- Settings page --- */
+:root[data-theme="dark"] .settings-nav,
+:root[data-theme="dark"] .settings-panel {
+  background: rgba(23, 29, 46, .82);
+  border-color: rgba(100, 116, 139, .28);
+}
+
+:root[data-theme="dark"] .settings-nav-item {
+  color: #94a3b8;
+}
+
+:root[data-theme="dark"] .settings-nav-item:hover {
+  color: #e2e8f0;
+  background: rgba(51, 65, 85, .5);
+}
+
+:root[data-theme="dark"] .settings-nav-item.active {
+  color: #c7d2fe;
+  background: linear-gradient(90deg, rgba(79, 70, 229, .3), rgba(99, 102, 241, .14));
+}
+
+:root[data-theme="dark"] .settings-panel h2 {
+  color: #f1f5f9;
+}
+
+:root[data-theme="dark"] .settings-panel-hint,
+:root[data-theme="dark"] .option-card span {
+  color: #94a3b8;
+}
+
+:root[data-theme="dark"] .settings-field label,
+:root[data-theme="dark"] .option-card strong {
+  color: #e2e8f0;
+}
+
+:root[data-theme="dark"] .option-card {
+  background: rgba(17, 24, 39, .6);
+  border-color: rgba(100, 116, 139, .3);
+}
+
+:root[data-theme="dark"] .settings-success {
+  background: rgba(21, 128, 61, .18);
+  border-color: rgba(34, 197, 94, .3);
+  color: #86efac;
+}
+
+/* --- Admin extras --- */
+:root[data-theme="dark"] .role-badge-admin { background: rgba(124, 58, 237, .22); color: #d8b4fe; }
+:root[data-theme="dark"] .role-badge-user { background: rgba(13, 148, 136, .22); color: #5eead4; }
+:root[data-theme="dark"] .audit-action-chip { background: rgba(51, 65, 85, .6); color: #cbd5e1; }
+:root[data-theme="dark"] .pagination-bar { color: #94a3b8; }
+:root[data-theme="dark"] .admin-card h2 { color: #f1f5f9; }

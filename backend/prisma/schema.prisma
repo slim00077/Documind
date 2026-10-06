@@ -1,0 +1,235 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id                  Int                  @id @default(autoincrement())
+  name                String
+  email               String               @unique
+  password            String
+  role                Role                 @default(USER)
+  isActive            Boolean              @default(true)
+  theme               Theme                @default(SYSTEM)
+  aiResponseStyle     AiResponseStyle      @default(BALANCED)
+  documents           Document[]
+  conversations       Conversation[]
+  documentPermissions DocumentPermission[]
+  auditLogs           AuditLog[]           @relation("ActorAuditLogs")
+  notifications       Notification[]
+  favorites           DocumentFavorite[]
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+}
+
+model Category {
+  id        Int        @id @default(autoincrement())
+  name      String
+  documents Document[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+}
+
+model Document {
+  id              Int             @id @default(autoincrement())
+  name            String
+  description     String?
+  originalName    String?
+  mimeType        String?
+  size            Int?
+  filePath        String?
+  status          DocumentStatus  @default(PENDING)
+  extractedText   String?
+  processingError String?
+  // Soft delete: set when moved to Trash, cleared on restore.
+  deletedAt       DateTime?
+  // AI insights generated on demand: { summary, topics, dates, entities }.
+  insights        Json?
+  insightsGeneratedAt DateTime?
+  // OCR text and AI image descriptions found in the file: [{ source, ocrText, description }].
+  visualAnalysis  Json?
+  userId          Int
+  categoryId      Int?
+  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category        Category?       @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  chunks          DocumentChunk[]
+  permissions     DocumentPermission[]
+  versions        DocumentVersion[]
+  favorites       DocumentFavorite[]
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  @@index([userId, createdAt])
+  @@index([categoryId])
+}
+
+model DocumentVersion {
+  id           Int      @id @default(autoincrement())
+  documentId   Int
+  version      Int
+  originalName String?
+  mimeType     String?
+  size         Int?
+  filePath     String
+  createdById  Int?
+  document     Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  createdAt    DateTime @default(now())
+  @@unique([documentId, version])
+}
+
+model DocumentPermission {
+  id         Int          @id @default(autoincrement())
+  documentId Int
+  userId     Int
+  role       DocumentRole @default(VIEWER)
+  document   Document     @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  user       User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+  @@unique([documentId, userId])
+  @@index([userId])
+}
+
+model Notification {
+  id         Int       @id @default(autoincrement())
+  userId     Int
+  // DOCUMENT_SHARED | PERMISSION_CHANGED | PERMISSION_REVOKED |
+  // PROCESSING_COMPLETED | PROCESSING_FAILED | DOCUMENT_TRASHED | DOCUMENT_RESTORED
+  type       String
+  title      String
+  message    String
+  documentId Int?
+  readAt     DateTime?
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt  DateTime  @default(now())
+  @@index([userId, readAt, createdAt])
+}
+
+model AuditLog {
+  id         Int         @id @default(autoincrement())
+  actorId    Int?
+  actorName  String?
+  actorEmail String?
+  action     AuditAction
+  targetType String?
+  targetId   Int?
+  metadata   Json?
+  ipAddress  String?
+  actor      User?       @relation("ActorAuditLogs", fields: [actorId], references: [id], onDelete: SetNull)
+  createdAt  DateTime    @default(now())
+  @@index([createdAt])
+  @@index([actorId])
+  @@index([action])
+}
+
+model DocumentChunk {
+  id         Int                     @id @default(autoincrement())
+  documentId Int
+  content    String
+  chunkIndex Int
+  embedding  Unsupported("vector(384)")?
+  document   Document                @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  createdAt  DateTime                @default(now())
+  @@unique([documentId, chunkIndex])
+}
+
+model Conversation {
+  id             Int       @id @default(autoincrement())
+  userId         Int
+  title          String?
+  // Best-effort hint only (which document the last message resolved to), so
+  // follow-ups like "explain section 4" can stay scoped to that document.
+  // Intentionally not a Prisma relation/FK: it is advisory, not integrity-
+  // critical, and should never block a Document from being deleted.
+  lastDocumentId Int?
+  // When set, the assistant answers from this document only (no fallback).
+  scopedDocumentId Int?
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages       Message[]
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  @@index([userId, updatedAt])
+}
+
+model Message {
+  id             Int          @id @default(autoincrement())
+  conversationId Int
+  role           MessageRole
+  content        String
+  // Array of source citations (documentId, documentName, chunkIndex,
+  // similarity) for ASSISTANT messages; null for USER messages.
+  sources        Json?
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+  @@index([conversationId, createdAt])
+}
+
+enum MessageRole {
+  USER
+  ASSISTANT
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum Theme {
+  LIGHT
+  DARK
+  SYSTEM
+}
+
+enum AiResponseStyle {
+  CONCISE
+  BALANCED
+  DETAILED
+}
+
+enum DocumentRole {
+  VIEWER
+  EDITOR
+  OWNER
+}
+
+enum AuditAction {
+  LOGIN
+  REGISTER
+  DOCUMENT_UPLOAD
+  DOCUMENT_UPDATE
+  DOCUMENT_DELETE
+  PERMISSION_GRANT
+  PERMISSION_UPDATE
+  PERMISSION_REVOKE
+  USER_UPDATE
+  USER_DISABLE
+  USER_ENABLE
+  USER_DELETE
+  USER_ROLE_CHANGE
+  CATEGORY_CREATE
+  CATEGORY_UPDATE
+  CATEGORY_DELETE
+}
+
+enum DocumentStatus {
+  PENDING
+  UPLOADED
+  PROCESSING
+  READY
+  COMPLETED
+  FAILED
+}
+
+model DocumentFavorite {
+  id         Int      @id @default(autoincrement())
+  documentId Int
+  userId     Int
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+  @@unique([documentId, userId])
+  @@index([userId])
+}

@@ -1,0 +1,16 @@
+Angular Exam Handbook - Complete Study Guide
+
+Section 1: Introduction to Angular
+Angular is a TypeScript-based front-end framework maintained by Google. It uses a component-based architecture where each component controls a piece of the UI with its own template, logic, and styles.
+
+Section 2: Components and Templates
+Components are the fundamental building blocks of Angular applications. Each component is defined by a TypeScript class decorated with @Component, which specifies the template, selector, and styles used to render the view.
+
+Section 3: Dependency Injection and Services
+Angular's dependency injection (DI) system allows components to request services rather than construct them directly. Services are typically declared with the @Injectable decorator and registered with a provider, most commonly at the root level via providedIn: 'root'. This makes the service a singleton shared across the application. Constructor injection is the standard pattern: a component or another service simply declares the dependency as a constructor parameter, and Angular's injector resolves and supplies the instance automatically. DI improves testability because dependencies can be swapped for mocks in unit tests, and it promotes loose coupling between components and the logic they rely on.
+
+Section 4: Routing and Navigation
+The Angular Router enables navigation between views based on URL paths. Routes are configured as an array of path-to-component mappings, and the router-outlet directive marks where the matched component should render.
+
+Section 5: Forms
+Angular supports two approaches to forms: template-driven forms, which rely on directives in the template, and reactive forms, which define the form model programmatically using FormGroup and FormControl for more explicit control and easier testing.
