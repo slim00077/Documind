@@ -5,6 +5,9 @@ import * as bcrypt from "bcryptjs";
 import { AppModule } from "../src/app.module";
 import { PrismaService } from "../src/prisma/prisma.service";
 
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { assertTestDatabase } = require("../scripts/test-db-guard") as { assertTestDatabase: (url: string) => string };
+
 export type Api = { status: number; body: any };
 
 export class Harness {
@@ -14,9 +17,8 @@ export class Harness {
   private tokens = new Map<string, string>();
 
   async start() {
-    if (!process.env.DATABASE_URL?.endsWith("_test")) {
-      throw new Error("Refusing to run tests against a non-test database");
-    }
+    // Fail-closed: validates the parsed database name (not the raw URL, which may end in ?schema=public).
+    assertTestDatabase(process.env.DATABASE_URL ?? "");
     this.app = await NestFactory.create(AppModule, { logger: false });
     this.app.setGlobalPrefix("api");
     this.app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }));

@@ -7,6 +7,7 @@
 require("dotenv").config({ quiet: true });
 const { spawnSync } = require("node:child_process");
 const { Pool } = require("pg");
+const { assertTestDatabase, assertTestDatabaseName } = require("./test-db-guard");
 
 async function main() {
   const base = process.env.DATABASE_URL;
@@ -15,6 +16,8 @@ async function main() {
   const devName = url.pathname.slice(1);
   const testName = `${devName.replace(/_test$/, "")}_test`;
   if (testName === devName) throw new Error("Refusing to run: database name already ends in _test");
+  // Fail-closed: the derived name must be a dedicated test database BEFORE anything is dropped.
+  assertTestDatabaseName(testName);
 
   const admin = new URL(base);
   admin.pathname = "/postgres";
@@ -25,6 +28,7 @@ async function main() {
 
   url.pathname = `/${testName}`;
   const testUrl = url.toString();
+  assertTestDatabase(testUrl); // the URL actually handed to the tests, query string included
   const env = { ...process.env, DATABASE_URL: testUrl, JWT_SECRET: process.env.JWT_SECRET || "test-secret", NODE_ENV: "test" };
 
   const extPool = new Pool({ connectionString: testUrl });
