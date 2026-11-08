@@ -1,0 +1,22 @@
+# OPTIONAL - only if an ingress controller is installed (kubeadm ships none). Not part of
+# kustomization.yaml. Everything goes to the frontend, whose nginx proxies /api to the backend.
+# Set ingressClassName to your controller (traefik, haproxy, nginx, ...) and raise its request
+# body limit to at least 25 MB (uploads are capped at 20 MB by the API).
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: documind
+  namespace: documind
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: documind.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port:
+                  name: http

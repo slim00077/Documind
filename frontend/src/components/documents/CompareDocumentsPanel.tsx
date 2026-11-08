@@ -1,40 +1,23 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { GitCompareArrows, Loader2 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
-import {
-  ApiError,
-  compareDocumentsRequest,
-  listDocumentsRequest,
-} from "../../services/documents.api";
-import type { Document, DocumentComparisonResult } from "../../types/document";
-import { formatFileSize } from "../../utils/formatFileSize";
+import { ApiError, listDocumentsRequest } from "../../services/documents.api";
+import { compareManyRequest } from "../../services/intelligence.api";
+import type { Document } from "../../types/document";
+import type { MultiCompareResult } from "../../types/intelligence";
 import { PageState } from "../ui/PageState";
 
-const isComparable = (document: Document) => document.status === "READY";
-
-function ListSection({ title, items }: { title: string; items: string[] }) {
-  if (items.length === 0) return null;
-  return (
-    <div className="compare-section">
-      <h3>{title}</h3>
-      <ul className="compare-list">
-        {items.map((item, index) => (
-          <li key={index}>{item}</li>
-        ))}
-      </ul>
-    </div>
-  );
-}
+const MAX_DOCUMENTS = 5;
 
 export default function CompareDocumentsPanel() {
   const { token } = useAuth();
   const [documents, setDocuments] = useState<Document[] | null>(null);
   const [loadError, setLoadError] = useState("");
-  const [idA, setIdA] = useState("");
-  const [idB, setIdB] = useState("");
+  const [selected, setSelected] = useState<number[]>([]);
   const [isComparing, setIsComparing] = useState(false);
   const [error, setError] = useState("");
-  const [result, setResult] = useState<DocumentComparisonResult | null>(null);
+  const [result, setResult] = useState<MultiCompareResult | null>(null);
 
   useEffect(() => {
     if (!token) return;
@@ -43,19 +26,22 @@ export default function CompareDocumentsPanel() {
       .catch((err) => setLoadError(err instanceof ApiError ? err.message : "Unable to load your documents."));
   }, [token]);
 
-  const comparable = useMemo(() => (documents ?? []).filter(isComparable), [documents]);
+  const comparable = useMemo(() => (documents ?? []).filter((d) => d.status === "READY"), [documents]);
+
+  const toggle = (id: number) =>
+    setSelected((previous) =>
+      previous.includes(id) ? previous.filter((x) => x !== id) : previous.length < MAX_DOCUMENTS ? [...previous, id] : previous,
+    );
 
   const onCompare = async () => {
-    if (!token || !idA || !idB) return;
+    if (!token || selected.length < 2) return;
     setIsComparing(true);
     setError("");
     setResult(null);
     try {
-      setResult(await compareDocumentsRequest(token, Number(idA), Number(idB)));
+      setResult(await compareManyRequest(token, selected));
     } catch (compareError) {
-      setError(
-        compareError instanceof ApiError ? compareError.message : "Unable to compare these documents right now."
-      );
+      setError(compareError instanceof ApiError ? compareError.message : "Unable to compare these documents right now.");
     } finally {
       setIsComparing(false);
     }
@@ -64,11 +50,9 @@ export default function CompareDocumentsPanel() {
   if (loadError) {
     return <PageState icon={GitCompareArrows} title="Couldn't load your documents" message={loadError} tone="error" compact />;
   }
-
   if (documents === null) {
     return <PageState icon={GitCompareArrows} title="Loading documents..." compact />;
   }
-
   if (comparable.length < 2) {
     return (
       <PageState
@@ -79,51 +63,44 @@ export default function CompareDocumentsPanel() {
     );
   }
 
-  const optionLabel = (document: Document) =>
-    document.accessRole && document.accessRole !== "OWNER" ? `${document.name} (shared)` : document.name;
-
   return (
     <div className="page-stack">
       <article className="workspace-panel">
         <div className="panel-heading">
           <div>
             <p className="section-kicker">AI comparison</p>
-            <h2>Compare two documents</h2>
+            <h2>Compare 2 to {MAX_DOCUMENTS} documents</h2>
           </div>
           <GitCompareArrows />
         </div>
         <p className="modal-message">
-          The AI reads representative passages from both documents and highlights what they share and where they differ.
+          The AI reads representative passages from each document and builds a comparison table, flags contradictions and lists missing information.
         </p>
-        <div className="compare-picker">
-          <label>
-            <span>Document A</span>
-            <select className="auth-input" value={idA} onChange={(event) => setIdA(event.target.value)}>
-              <option value="">Select a document...</option>
-              {comparable.map((document) => (
-                <option key={document.id} value={document.id} disabled={String(document.id) === idB}>
-                  {optionLabel(document)}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            <span>Document B</span>
-            <select className="auth-input" value={idB} onChange={(event) => setIdB(event.target.value)}>
-              <option value="">Select a document...</option>
-              {comparable.map((document) => (
-                <option key={document.id} value={document.id} disabled={String(document.id) === idA}>
-                  {optionLabel(document)}
-                </option>
-              ))}
-            </select>
-          </label>
-          <button
-            className="button button-primary"
-            type="button"
-            disabled={!idA || !idB || idA === idB || isComparing}
-            onClick={onCompare}
-          >
+        <fieldset className="ai-card" style={{ border: "1px solid rgba(148,163,184,.3)" }}>
+          <legend>
+            Select documents ({selected.length}/{MAX_DOCUMENTS})
+          </legend>
+          <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: 6 }}>
+            {comparable.map((document) => (
+              <li key={document.id}>
+                <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  <input
+                    type="checkbox"
+                    checked={selected.includes(document.id)}
+                    disabled={!selected.includes(document.id) && selected.length >= MAX_DOCUMENTS}
+                    onChange={() => toggle(document.id)}
+                  />
+                  <span>
+                    {document.name}
+                    {document.accessRole && document.accessRole !== "OWNER" ? " (shared)" : ""}
+                  </span>
+                </label>
+              </li>
+            ))}
+          </ul>
+        </fieldset>
+        <div className="ai-toolbar" style={{ marginTop: 12 }}>
+          <button className="button button-primary" type="button" disabled={selected.length < 2 || isComparing} onClick={() => void onCompare()}>
             {isComparing ? (
               <>
                 <Loader2 className="spin" /> Comparing...
@@ -135,67 +112,103 @@ export default function CompareDocumentsPanel() {
             )}
           </button>
         </div>
-        {error ? <p className="auth-error">{error}</p> : null}
+        {error ? (
+          <p className="auth-error" role="alert">
+            {error}
+          </p>
+        ) : null}
       </article>
 
       {result ? (
-        <article className="workspace-panel compare-result">
-          <div className="compare-heads">
-            {[result.documentA, result.documentB].map((info, index) => (
-              <div key={info.id} className="compare-head">
-                <span className="section-kicker">Document {index === 0 ? "A" : "B"}</span>
-                <strong>{info.name}</strong>
-                <small>
-                  {info.size !== null ? `${formatFileSize(info.size)} · ` : ""}
-                  {info.category ? `${info.category} · ` : ""}
-                  {info.excerptsCompared} of {info.chunkCount} passages analysed
-                </small>
-              </div>
-            ))}
-          </div>
-
-          <div className="compare-section">
+        <article className="workspace-panel compare-result ai-panel">
+          <div className="ai-card">
             <h3>Overview</h3>
-            <p>{result.comparison.overview}</p>
+            <p>{result.overview}</p>
+            <p className="ai-muted">
+              {result.documents.map((d) => `${d.name}: ${d.passagesCompared}/${d.totalPassages} passages`).join(" · ")}
+            </p>
           </div>
 
-          <ListSection title="What they have in common" items={result.comparison.similarities} />
-
-          {result.comparison.differences.length > 0 ? (
-            <div className="compare-section">
-              <h3>Key differences</h3>
-              <div className="admin-table-wrap">
-                <table className="admin-table compare-table">
-                  <thead>
-                    <tr>
-                      <th>Aspect</th>
-                      <th>{result.documentA.name}</th>
-                      <th>{result.documentB.name}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {result.comparison.differences.map((row, index) => (
-                      <tr key={index}>
-                        <td>
-                          <strong>{row.aspect}</strong>
-                        </td>
-                        <td>{row.documentA || "—"}</td>
-                        <td>{row.documentB || "—"}</td>
-                      </tr>
+          <div className="ai-card">
+            <h3>Comparison table</h3>
+            <div className="ai-table-wrap">
+              <table className="ai-table">
+                <thead>
+                  <tr>
+                    <th>Aspect</th>
+                    {result.documents.map((d) => (
+                      <th key={d.id}>
+                        <Link to={`/app/documents/${d.id}`}>{d.name}</Link>
+                      </th>
                     ))}
-                  </tbody>
-                </table>
-              </div>
+                  </tr>
+                </thead>
+                <tbody>
+                  {result.table.map((row, i) => (
+                    <tr key={i}>
+                      <td>
+                        <strong>{row.aspect}</strong>
+                      </td>
+                      {row.cells.map((cell, j) => (
+                        <td key={j} className={cell ? "" : "ai-muted"}>
+                          {cell ?? "Not addressed"}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {result.similarities.length > 0 ? (
+            <div className="ai-card">
+              <h3>What they have in common</h3>
+              <ul>
+                {result.similarities.map((s, i) => (
+                  <li key={i}>{s}</li>
+                ))}
+              </ul>
             </div>
           ) : null}
 
-          <div className="compare-unique">
-            <ListSection title={`Only in ${result.documentA.name}`} items={result.comparison.onlyInA} />
-            <ListSection title={`Only in ${result.documentB.name}`} items={result.comparison.onlyInB} />
+          <div className="ai-card">
+            <h3>
+              Contradictions <span className="ai-badge ai-badge-warn">{result.contradictions.length}</span>
+            </h3>
+            {result.contradictions.length === 0 ? (
+              <p className="ai-muted">No direct contradictions were found in the compared passages.</p>
+            ) : (
+              result.contradictions.map((c, i) => (
+                <div key={i} style={{ marginBottom: 10 }}>
+                  <strong>{c.topic}</strong>
+                  <ul>
+                    {c.statements.map((s) => (
+                      <li key={s.document.id}>
+                        <em>{s.document.name}:</em> {s.statement}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))
+            )}
           </div>
 
+          {result.missingInformation.length > 0 ? (
+            <div className="ai-card">
+              <h3>Missing information</h3>
+              <ul>
+                {result.missingInformation.map((m, i) => (
+                  <li key={i}>
+                    <em>{m.document.name}:</em> {m.missing}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+
           <p className="insights-meta">
-            Generated by AI from sampled passages. Verify important details in the original documents.
+            Generated by AI from sampled passages{result.cached ? " (saved result)" : ""}. Verify important details in the original documents.
           </p>
         </article>
       ) : null}

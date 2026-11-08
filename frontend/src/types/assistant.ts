@@ -4,6 +4,11 @@ export type AssistantSource = {
   documentName: string;
   chunkIndex: number;
   similarity: number;
+  /** Fused hybrid-search relevance, 0..1. */
+  score?: number;
+  matchType?: "semantic" | "keyword" | "hybrid";
+  /** Start of the cited passage. */
+  excerpt?: string;
   /** Set when the passage came from an image, chart, diagram or scanned page. */
   visual?: { label: string; documentIsImage: boolean } | null;
 };

@@ -2,6 +2,8 @@ import { useState, type FormEvent } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { ApiError } from "../services/auth.api";
+import AuthShell from "../components/layout/AuthShell";
+import { homePath } from "../config/roles";
 
 const emailRegex =
   /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -12,7 +14,7 @@ export default function LoginPage() {
   const { login } = useAuth();
   const fromPath =
     (location.state as { from?: { pathname?: string } })
-      ?.from?.pathname ?? "/app";
+      ?.from?.pathname;
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -50,11 +52,11 @@ export default function LoginPage() {
     setIsSubmitting(true);
 
     try {
-      await login({
+      const signedIn = await login({
         email: email.trim(),
         password,
       });
-      navigate(fromPath, { replace: true });
+      navigate(fromPath ?? homePath(signedIn.role), { replace: true });
     } catch (submitError) {
       if (submitError instanceof ApiError) {
         setError(submitError.message);
@@ -69,9 +71,8 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="auth-shell">
+    <AuthShell>
       <form className="auth-card" onSubmit={onSubmit} noValidate>
-        <p className="auth-eyebrow">DocuMind</p>
         <h1 className="auth-title">Welcome back</h1>
         <p className="auth-hint">
           Sign in to continue managing your AI-powered documents.
@@ -147,6 +148,6 @@ export default function LoginPage() {
           <Link to="/register">Create an account</Link>
         </p>
       </form>
-    </div>
+    </AuthShell>
   );
 }

@@ -1,0 +1,97 @@
+# DocuMind API. One replica on purpose: uploads live on a ReadWriteOnce volume and AI usage
+# counters are in-process. Scaling out requires shared storage (RWX volume or object storage).
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: backend-uploads
+  namespace: documind
+  labels: { app.kubernetes.io/name: backend, app.kubernetes.io/part-of: documind }
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: documind
+  labels: { app.kubernetes.io/name: backend, app.kubernetes.io/part-of: documind }
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate # a RWO volume cannot be mounted by the old and new pod at the same time
+  selector:
+    matchLabels: { app.kubernetes.io/name: backend }
+  template:
+    metadata:
+      labels: { app.kubernetes.io/name: backend, app.kubernetes.io/part-of: documind }
+    spec:
+      imagePullSecrets:
+        - name: ghcr-pull
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000 # `node` user of the image
+        fsGroup: 1000 # makes the uploads volume writable
+      initContainers:
+        # Release step: create pgvector if missing, then `prisma migrate deploy` (never resets data).
+        - name: migrate
+          image: ghcr.io/slim00077/documind-backend:latest
+          command: ["npm", "run", "migrate:deploy"]
+          envFrom:
+            - configMapRef: { name: documind-config }
+            - secretRef: { name: documind-secrets }
+          resources:
+            requests: { cpu: 100m, memory: 128Mi }
+            limits: { cpu: 500m, memory: 512Mi }
+      containers:
+        - name: backend
+          image: ghcr.io/slim00077/documind-backend:latest
+          ports:
+            - name: http
+              containerPort: 3000
+          envFrom:
+            - configMapRef: { name: documind-config }
+            - secretRef: { name: documind-secrets }
+          # Slow first start (Nest bootstrap + embedding model load): give it up to 2 minutes.
+          startupProbe:
+            httpGet: { path: /api/health/live, port: http }
+            periodSeconds: 5
+            failureThreshold: 24
+          # Process alive. Independent of the database so a DB outage does not restart the pod.
+          livenessProbe:
+            httpGet: { path: /api/health/live, port: http }
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 3
+          # Ready to serve: PostgreSQL reachable and pgvector installed.
+          readinessProbe:
+            httpGet: { path: /api/health, port: http }
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          resources:
+            requests: { cpu: 250m, memory: 512Mi }
+            limits: { cpu: "1", memory: 1536Mi } # local embedding model (onnxruntime) needs headroom
+          volumeMounts:
+            - name: uploads
+              mountPath: /app/uploads
+      volumes:
+        - name: uploads
+          persistentVolumeClaim:
+            claimName: backend-uploads
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+  namespace: documind
+  labels: { app.kubernetes.io/name: backend, app.kubernetes.io/part-of: documind }
+spec:
+  type: ClusterIP
+  selector: { app.kubernetes.io/name: backend }
+  ports:
+    - name: http
+      port: 3000
+      targetPort: http

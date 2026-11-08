@@ -15,6 +15,8 @@ import type { Document } from "../types/document";
 import type { Category } from "../types/category";
 import StatusBadge from "../components/documents/StatusBadge";
 import ProcessingSteps from "../components/documents/ProcessingSteps";
+import CitedPassage from "../components/documents/CitedPassage";
+import DocumentIntelligencePanel from "../components/documents/DocumentIntelligencePanel";
 import DocumentInsightsPanel from "../components/documents/DocumentInsightsPanel";
 import DocumentVersionsPanel from "../components/documents/DocumentVersionsPanel";
 import ConfirmDialog from "../components/documents/ConfirmDialog";
@@ -356,6 +358,8 @@ export default function DocumentDetailPage() {
 
               <p>{doc.description || "No description yet."}</p>
 
+              <CitedPassage documentId={doc.id} />
+
               <ProcessingSteps
                 status={doc.status}
                 hasExtractedText={doc.hasExtractedText}
@@ -413,6 +417,8 @@ export default function DocumentDetailPage() {
                   setDoc((previous) => (previous ? { ...previous, insights, insightsGeneratedAt } : previous))
                 }
               />
+
+              <DocumentIntelligencePanel documentId={doc.id} isReady={doc.status === "READY"} />
 
               <DocumentVersionsPanel
                 doc={doc}

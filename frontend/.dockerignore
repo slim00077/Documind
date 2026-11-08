@@ -1,0 +1,9 @@
+# .env is excluded on purpose: it contains the local-dev API URL (http://localhost:3000).
+# The production API URL is passed with --build-arg VITE_API_URL=...
+.env
+.env.*
+node_modules
+dist
+*.log
+Dockerfile
+.dockerignore

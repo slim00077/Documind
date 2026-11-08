@@ -1,34 +1,25 @@
 import { Link } from "react-router-dom";
+import Brand from "../ui/Brand";
 
-const FOOTER_COLUMNS: { heading: string; links: { label: string; to: string }[] }[] = [
+const COLUMNS: { heading: string; links: { label: string; to: string }[] }[] = [
   {
     heading: "Product",
     links: [
       { label: "Features", to: "/#features" },
       { label: "How it works", to: "/#how-it-works" },
       { label: "Get started", to: "/register" },
+      { label: "Log in", to: "/login" },
     ],
   },
   {
     heading: "Company",
-    links: [
-      { label: "About", to: "/#about" },
-      { label: "Contact", to: "/#about" },
-    ],
-  },
-  {
-    heading: "Navigation",
-    links: [
-      { label: "Login", to: "/login" },
-      { label: "Documents", to: "/app/documents" },
-      { label: "AI Assistant", to: "/app/assistant" },
-    ],
+    links: [{ label: "About", to: "/#about" }],
   },
   {
     heading: "Legal",
     links: [
-      { label: "Privacy policy", to: "/#about" },
-      { label: "Terms of service", to: "/#about" },
+      { label: "Privacy Policy", to: "/privacy" },
+      { label: "Terms of Service", to: "/terms" },
     ],
   },
 ];
@@ -36,17 +27,17 @@ const FOOTER_COLUMNS: { heading: string; links: { label: string; to: string }[] 
 export default function SiteFooter() {
   return (
     <footer className="site-footer">
-      <div className="site-footer-top">
-        <div className="site-footer-brand">
-          <span className="brand">
-            <span className="brand-mark">D</span>
-            <span>DocuMind</span>
-          </span>
-          <p>Intelligent document management for teams who want clarity, not clutter.</p>
-        </div>
-        <div className="site-footer-columns">
-          {FOOTER_COLUMNS.map((column) => (
-            <div className="site-footer-column" key={column.heading}>
+      <div className="footer-inner">
+        <div className="footer-top">
+          <div className="footer-brand">
+            <Brand />
+            <p>
+              AI-powered document management. Search, summarize, compare and question your documents, with answers that
+              point back to their sources.
+            </p>
+          </div>
+          {COLUMNS.map((column) => (
+            <nav className="footer-col" key={column.heading} aria-label={column.heading}>
               <h3>{column.heading}</h3>
               <ul>
                 {column.links.map((link) => (
@@ -55,13 +46,13 @@ export default function SiteFooter() {
                   </li>
                 ))}
               </ul>
-            </div>
+            </nav>
           ))}
         </div>
-      </div>
-      <div className="site-footer-bottom">
-        <span>&copy; {new Date().getFullYear()} DocuMind. All rights reserved.</span>
-        <span>Built for clearer document work.</span>
+        <div className="footer-bottom">
+          <span>&copy; {new Date().getFullYear()} DocuMind. All rights reserved.</span>
+          <span>Documents stay private to their owners and the people they are shared with.</span>
+        </div>
       </div>
     </footer>
   );

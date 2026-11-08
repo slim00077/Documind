@@ -14,6 +14,14 @@ import { NullLlmProvider } from "./providers/null-llm.provider";
 import { OpenAiLlmProvider } from "./providers/openai-llm.provider";
 
 const DEFAULT_ORDER = ["gemini"];
+// Providers that cannot work without an API key. "local" (Ollama) needs none;
+// if it is not running it fails fast and the chain moves on.
+const REQUIRED_API_KEY: Record<string, string> = {
+  gemini: "GEMINI_API_KEY",
+  openrouter: "OPENROUTER_API_KEY",
+  groq: "GROQ_API_KEY",
+  openai: "OPENAI_API_KEY",
+};
 const MAX_RETRIES_PER_PROVIDER = "LLM_MAX_RETRIES";
 const DEFAULT_MAX_RETRIES = 2;
 const BASE_RETRY_DELAY_MS_KEY = "LLM_RETRY_BASE_DELAY_MS";
@@ -80,14 +88,39 @@ export class MultiProviderLlmService implements LLMProvider {
         if (!entry.provider) {
           this.logger.warn(
             `LLM_PROVIDER_ORDER lists unknown provider "${entry.id}" - ignoring it. ` +
-              `Valid ids: gemini, openrouter, groq, local, none.`,
+              `Valid ids: gemini, openrouter, groq, openai, local, none.`,
           );
           return false;
         }
         return true;
       });
 
-    this.chain = resolved.length ? resolved : [{ id: "none", provider: nullProvider }];
+    // Drop providers whose API key is missing/blank so they are never tried
+    // (and never reported as failures). Adding the key later enables them.
+    const usable = resolved.filter(({ id }) => {
+      const keyName = REQUIRED_API_KEY[id];
+      if (keyName && !config.get<string>(keyName)?.trim()) {
+        this.logger.warn(`Provider "${id}" skipped: ${keyName} is not set.`);
+        return false;
+      }
+      // On a cloud host, localhost:11434 is the server itself, not the developer's machine:
+      // in production Ollama stays in the chain only when it points at a real remote endpoint.
+      if (id === "local" && config.get<string>("NODE_ENV") === "production") {
+        const ollamaUrl = config.get<string>("OLLAMA_BASE_URL")?.trim() ?? "";
+        if (!ollamaUrl || /\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\])(:|\/|$)/i.test(ollamaUrl)) {
+          this.logger.warn('Provider "local" skipped: set OLLAMA_BASE_URL to a reachable remote Ollama server to use it in production.');
+          return false;
+        }
+      }
+      return true;
+    });
+
+    if (!usable.length) {
+      this.logger.error(
+        "No usable LLM provider is configured (check LLM_PROVIDER_ORDER and the provider API keys).",
+      );
+    }
+    this.chain = usable.length ? usable : [{ id: "none", provider: nullProvider }];
     this.maxRetries = config.get<number>(MAX_RETRIES_PER_PROVIDER, DEFAULT_MAX_RETRIES);
     this.baseRetryDelayMs = config.get<number>(
       BASE_RETRY_DELAY_MS_KEY,
@@ -143,7 +176,9 @@ export class MultiProviderLlmService implements LLMProvider {
 
     // Every provider in the chain failed.
     this.logger.error(
-      `All configured providers failed (${this.chain.map((entry) => entry.id).join(", ")}). Returning a safe error to the caller.`,
+      `All configured providers failed (${this.chain.map((entry) => entry.id).join(", ")}). ` +
+        `Last error: ${lastError ? `${lastError.kind}, HTTP ${lastError.status ?? "n/a"}, ${lastError.message}` : "none (all providers skipped)"}. ` +
+        `Returning a safe error to the caller.`,
     );
 
     if (lastError?.kind === "quota") {
@@ -314,7 +349,9 @@ export class MultiProviderLlmService implements LLMProvider {
     }
 
     this.logger.error(
-      `All configured providers failed (${this.chain.map((entry) => entry.id).join(", ")}). Returning a safe error to the caller.`,
+      `All configured providers failed (${this.chain.map((entry) => entry.id).join(", ")}). ` +
+        `Last error: ${lastError ? `${lastError.kind}, HTTP ${lastError.status ?? "n/a"}, ${lastError.message}` : "none (all providers skipped)"}. ` +
+        `Returning a safe error to the caller.`,
     );
 
     if (lastError?.kind === "quota") {

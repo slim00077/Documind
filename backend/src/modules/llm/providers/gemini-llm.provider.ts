@@ -45,6 +45,21 @@ class GeminiRequestError extends Error {
   }
 }
 
+/** Pulls Google's own error message out of an error body, never echoing the API key. */
+function describeGeminiError(status: number, body: string, apiKey?: string): string {
+  let detail = body.trim();
+  try {
+    const parsed = JSON.parse(body) as { error?: { status?: string; message?: string } };
+    if (parsed.error?.message) {
+      detail = `${parsed.error.status ? `${parsed.error.status}: ` : ""}${parsed.error.message}`;
+    }
+  } catch {
+    // Not JSON - fall back to the raw (truncated) body.
+  }
+  if (apiKey) detail = detail.split(apiKey).join("[redacted]");
+  return `Gemini HTTP ${status}${detail ? ` - ${detail.slice(0, 500)}` : ""}`;
+}
+
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -183,18 +198,15 @@ export class GeminiLlmProvider implements LLMProvider {
       this.logger.error(
         `Gemini streamGenerateContent failed for model "${model}" (${response.status}): ${errorBody.slice(0, 2000)}`,
       );
+      const described = describeGeminiError(response.status, errorBody, this.apiKey);
       if (QUOTA_STATUS_CODES.has(response.status)) {
-        throw new LlmProviderError("Gemini is rate-limited.", "quota", response.status);
+        throw new LlmProviderError(described, "quota", response.status);
       }
       if (FATAL_STATUS_CODES.has(response.status)) {
-        throw new LlmProviderError(
-          "Gemini rejected the request (auth/config error).",
-          "fatal",
-          response.status,
-        );
+        throw new LlmProviderError(described, "fatal", response.status);
       }
       throw new LlmProviderError(
-        `Gemini responded with ${response.status}`,
+        described,
         MODEL_UNAVAILABLE_STATUS_CODES.has(response.status) ? "model-unavailable" : "transient",
         response.status,
       );
@@ -283,11 +295,7 @@ export class GeminiLlmProvider implements LLMProvider {
             this.logger.error(
               `Gemini request failed non-transiently (${error.status}): ${error.message.slice(0, 2000)}`,
             );
-            throw new LlmProviderError(
-              "Gemini rejected the request (auth/config error).",
-              "fatal",
-              error.status,
-            );
+            throw new LlmProviderError(error.message, "fatal", error.status);
           }
 
           if (error.kind === "quota") {
@@ -297,11 +305,7 @@ export class GeminiLlmProvider implements LLMProvider {
             this.logger.warn(
               `Gemini model "${model}" is rate-limited; not worth trying other Gemini models right now.`,
             );
-            throw new LlmProviderError(
-              "Gemini is rate-limited.",
-              "quota",
-              error.status,
-            );
+            throw new LlmProviderError(error.message, "quota", error.status);
           }
 
           if (error.kind === "model-unavailable") {
@@ -387,7 +391,7 @@ export class GeminiLlmProvider implements LLMProvider {
             : "transient";
 
       throw new GeminiRequestError(
-        `Gemini responded with ${response.status}`,
+        describeGeminiError(response.status, errorBody, this.apiKey),
         response.status,
         kind,
       );

@@ -95,7 +95,14 @@ export class DocumentsController {
     @CurrentUser() user: AuthTokenPayload,
     @Query() dto: SearchDocumentsDto,
   ) {
-    return this.searchService.search(user.userId, dto.query, dto.limit);
+    return this.searchService.search(user.userId, dto.query, dto.limit, undefined, {
+      documentIds: dto.documentIds,
+      categoryId: dto.categoryId,
+      mimeType: dto.mimeType,
+      createdFrom: dto.createdFrom,
+      createdTo: dto.createdTo,
+      rerank: dto.rerank,
+    });
   }
 
   @Get("trash")

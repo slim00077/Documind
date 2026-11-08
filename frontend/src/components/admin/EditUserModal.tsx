@@ -3,6 +3,9 @@ import { X } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { ApiError, updateAdminUserRequest } from "../../services/admin.api";
 import type { AdminUser } from "../../types/admin";
+import { normalizeRole, type AppRole } from "../../config/roles";
+
+type AssignableRole = AppRole;
 
 type EditUserModalProps = {
   user: AdminUser;
@@ -15,7 +18,7 @@ export default function EditUserModal({ user, onClose, onUpdated }: EditUserModa
 
   const [name, setName] = useState(user.name);
   const [email, setEmail] = useState(user.email);
-  const [role, setRole] = useState<"USER" | "ADMIN">(user.role);
+  const [role, setRole] = useState<AssignableRole>(normalizeRole(user.role));
   const [error, setError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
@@ -76,10 +79,11 @@ export default function EditUserModal({ user, onClose, onUpdated }: EditUserModa
             id="edit-user-role"
             className="auth-input"
             value={role}
-            onChange={(event) => setRole(event.target.value as "USER" | "ADMIN")}
+            onChange={(event) => setRole(event.target.value as AssignableRole)}
             disabled={isSelf}
           >
-            <option value="USER">User</option>
+            <option value="STUDENT">Student</option>
+            <option value="TEACHER">Teacher</option>
             <option value="ADMIN">Admin</option>
           </select>
           {isSelf ? <p className="auth-hint">You cannot change your own role.</p> : null}

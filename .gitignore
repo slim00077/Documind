@@ -1,0 +1,35 @@
+node_modules/
+
+# secrets / local environment
+.env
+.env.*
+!.env.example
+.claude/settings.local.json
+
+# build output, coverage, CI artifacts
+dist/
+coverage/
+.vercel/
+eslint-report.json
+
+# user data and database dumps
+uploads/
+backups/
+*.sql.gz
+*.dump
+
+# report (LaTeX) build artifacts and exported PDFs
+report/*.pdf
+report/main.aux
+report/main.bbl
+report/main.bcf
+report/main.blg
+report/main.fdb_latexmk
+report/main.fls
+report/main.lof
+report/main.log
+report/main.lot
+report/main.out
+report/main.run.xml
+report/main.synctex.gz
+report/main.toc

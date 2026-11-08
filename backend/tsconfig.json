@@ -12,6 +12,6 @@
     "emitDecoratorMetadata": true,
     "skipLibCheck": true
   },
-  "include": ["src", "generated/prisma"],
+  "include": ["src", "generated/prisma", "test"],
   "exclude": ["node_modules", "dist"]
 }

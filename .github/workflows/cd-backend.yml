@@ -1,0 +1,123 @@
+# CD pipeline 1 - deploy the DocuMind API to Render, only after "CI - Backend" passed on main.
+# Render builds backend/Dockerfile (render.yaml), runs `npm run migrate:deploy` as pre-deploy
+# command, then switches traffic once /api/health is green. This workflow triggers the deploy
+# of the exact CI-tested commit, waits for the result and smoke-tests production.
+name: CD - Backend (Render)
+
+on:
+  workflow_run:
+    workflows: ["CI - Backend"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: cd-backend-production
+  cancel-in-progress: false # never interrupt a deployment in progress
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy to Render & verify
+    if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment:
+      name: production-backend
+      url: ${{ vars.BACKEND_URL }}
+    env:
+      RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+      RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+      RENDER_SERVICE_ID: ${{ vars.RENDER_SERVICE_ID }}
+      BACKEND_URL: ${{ vars.BACKEND_URL }}
+      FRONTEND_URL: ${{ vars.FRONTEND_URL }}
+      COMMIT: ${{ github.event.workflow_run.head_sha || github.sha }}
+    steps:
+      - name: Check deployment configuration
+        run: |
+          missing=""
+          [ -n "$RENDER_DEPLOY_HOOK_URL" ] || missing="$missing secret:RENDER_DEPLOY_HOOK_URL"
+          [ -n "$BACKEND_URL" ] || missing="$missing variable:BACKEND_URL"
+          if [ -n "$missing" ]; then
+            echo "::error title=Render not configured::Missing$missing (Settings > Secrets and variables > Actions)"
+            exit 1
+          fi
+
+      - name: Trigger Render deploy of commit ${{ env.COMMIT }}
+        id: trigger
+        run: |
+          response=$(curl -fsS -X POST "${RENDER_DEPLOY_HOOK_URL}&ref=${COMMIT}")
+          deploy_id=$(echo "$response" | jq -r '.deploy.id // empty')
+          echo "Render deploy id: ${deploy_id:-unknown}"
+          echo "deploy_id=$deploy_id" >> "$GITHUB_OUTPUT"
+
+      - name: Wait for the Render deploy to finish (build, pre-deploy migrations, health check)
+        if: env.RENDER_API_KEY != '' && env.RENDER_SERVICE_ID != '' && steps.trigger.outputs.deploy_id != ''
+        env:
+          DEPLOY_ID: ${{ steps.trigger.outputs.deploy_id }}
+        run: |
+          for i in $(seq 1 90); do
+            status=$(curl -fsS -H "Authorization: Bearer $RENDER_API_KEY" -H "Accept: application/json" \
+              "https://api.render.com/v1/services/$RENDER_SERVICE_ID/deploys/$DEPLOY_ID" | jq -r '.status')
+            echo "[$i] Render deploy status: $status"
+            case "$status" in
+              live) exit 0 ;;
+              build_failed|update_failed|pre_deploy_failed|canceled|deactivated)
+                echo "::error title=Render deploy failed::status=$status (see the Render dashboard logs)"; exit 1 ;;
+            esac
+            sleep 20
+          done
+          echo "::error::Timed out waiting for the Render deploy"; exit 1
+
+      - name: Production health check (database + pgvector)
+        run: |
+          short=${COMMIT:0:7}
+          for i in $(seq 1 60); do
+            body=$(curl -s --max-time 10 "$BACKEND_URL/api/health" || true)
+            status=$(echo "$body" | jq -r '.status // empty' 2>/dev/null || true)
+            version=$(echo "$body" | jq -r '.version // empty' 2>/dev/null || true)
+            echo "[$i] status=${status:-unreachable} version=${version:-?}"
+            if [ "$status" = "ok" ]; then
+              # version = RENDER_GIT_COMMIT (first 7 chars): proves the NEW release is serving.
+              if [ "$version" = "$short" ]; then echo "$body" | jq .; exit 0; fi
+              if ! echo "$version" | grep -Eq '^[0-9a-f]{7}$'; then
+                echo "::warning::Health is green but the running commit cannot be verified (version=$version)"
+                echo "$body" | jq .; exit 0
+              fi
+              # Otherwise an older commit is still live: keep waiting.
+            fi
+            sleep 10
+          done
+          echo "::error title=Health check failed::$BACKEND_URL/api/health is not green on commit $short"
+          exit 1
+
+      - name: Smoke tests (no AI provider call, no database write)
+        run: |
+          fail=0
+          code=$(curl -s -o /dev/null -w "%{http_code}" "$BACKEND_URL/api/documents")
+          echo "GET /api/documents without JWT -> $code (expected 401)"; [ "$code" = "401" ] || fail=1
+          code=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$BACKEND_URL/api/auth/login" \
+            -H "Content-Type: application/json" \
+            -d '{"email":"cd-smoke-test@invalid.example","password":"NotARealPassword123!"}')
+          echo "POST /api/auth/login unknown user -> $code (expected 401)"; [ "$code" = "401" ] || fail=1
+          if [ -n "$FRONTEND_URL" ]; then
+            origin="${FRONTEND_URL%/}"
+            allowed=$(curl -s -o /dev/null -D - -X OPTIONS "$BACKEND_URL/api/auth/login" \
+              -H "Origin: $origin" -H "Access-Control-Request-Method: POST" \
+              | tr -d '\r' | awk -F': ' 'tolower($1)=="access-control-allow-origin"{print $2}')
+            echo "CORS for $origin -> ${allowed:-none}"; [ "$allowed" = "$origin" ] || fail=1
+          fi
+          exit $fail
+
+      - name: Deployment summary
+        if: always()
+        run: |
+          {
+            echo "### Backend deployment (Render)"
+            echo "- Commit: \`${COMMIT}\`"
+            echo "- URL: $BACKEND_URL"
+            echo "- Health: $BACKEND_URL/api/health"
+            echo "- Result: ${{ job.status }}"
+          } >> "$GITHUB_STEP_SUMMARY"

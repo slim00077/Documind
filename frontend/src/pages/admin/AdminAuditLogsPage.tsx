@@ -78,7 +78,7 @@ export default function AdminAuditLogsPage() {
       <div className="page-heading">
         <div>
           <p className="section-kicker">Admin</p>
-          <h1>Audit logs</h1>
+          <h1>System monitoring &amp; audit logs</h1>
           <p>A record of logins, uploads, edits, deletions, and admin actions.</p>
         </div>
       </div>

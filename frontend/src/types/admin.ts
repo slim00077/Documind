@@ -7,6 +7,8 @@ export type AdminStatsOverview = {
     active: number;
     disabled: number;
     admins: number;
+    students: number;
+    teachers: number;
     newThisWeek: number;
   };
   documents: {
@@ -24,7 +26,7 @@ export type AdminUser = {
   id: number;
   name: string;
   email: string;
-  role: "USER" | "ADMIN";
+  role: "USER" | "STUDENT" | "TEACHER" | "ADMIN";
   isActive: boolean;
   theme: Theme;
   aiResponseStyle: AiResponseStyle;

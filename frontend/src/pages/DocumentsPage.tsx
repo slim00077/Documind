@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { FileText, FolderTree, GitCompareArrows, Plus, Search, Sparkles, Star, Trash2, Users } from "lucide-react";
+import { useWorkspace } from "../context/WorkspaceContext";
+import { FileText, FolderTree, Plus, Search, Star, Trash2, Users } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import {
   ApiError,
@@ -16,8 +17,6 @@ import ConfirmDialog from "../components/documents/ConfirmDialog";
 import DocumentCard from "../components/documents/DocumentCard";
 import TrashPanel from "../components/documents/TrashPanel";
 import SharedDocumentsPanel from "../components/documents/SharedDocumentsPanel";
-import CompareDocumentsPanel from "../components/documents/CompareDocumentsPanel";
-import SemanticSearchPanel from "../components/documents/SemanticSearchPanel";
 import CategoryManagerPanel from "../components/categories/CategoryManagerPanel";
 import { PageState } from "../components/ui/PageState";
 import { SkeletonDocumentCard } from "../components/ui/Skeleton";
@@ -25,13 +24,11 @@ import { useToast } from "../components/ui/ToastProvider";
 import { formatFileSize } from "../utils/formatFileSize";
 
 type SortOption = "newest" | "oldest" | "name-asc" | "name-desc" | "largest";
-type Tab = "library" | "shared" | "compare" | "search" | "categories" | "trash";
+type Tab = "library" | "shared" | "categories" | "trash";
 
 const TABS: { key: Tab; label: string; icon: typeof FileText }[] = [
   { key: "library", label: "Library", icon: FileText },
   { key: "shared", label: "Shared with me", icon: Users },
-  { key: "compare", label: "Compare", icon: GitCompareArrows },
-  { key: "search", label: "AI Search", icon: Sparkles },
   { key: "categories", label: "Categories", icon: FolderTree },
   { key: "trash", label: "Trash", icon: Trash2 },
 ];
@@ -48,9 +45,10 @@ const STATUS_OPTIONS: DocumentStatus[] = [
 export default function DocumentsPage() {
   const { token } = useAuth();
   const { showToast } = useToast();
+  const { current: orgWorkspace } = useWorkspace();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const tab: Tab = (["library", "shared", "compare", "search", "categories", "trash"] as Tab[]).includes(
+  const tab: Tab = (["library", "shared", "categories", "trash"] as Tab[]).includes(
     searchParams.get("tab") as Tab
   )
     ? (searchParams.get("tab") as Tab)
@@ -241,6 +239,15 @@ export default function DocumentsPage() {
         ) : null}
       </div>
 
+      {orgWorkspace ? (
+        <p className="role-note">
+          <span>
+            You are in the <strong>{orgWorkspace.organization.name}</strong> workspace. These are the documents shared there; the AI assistant and search stay inside this organization.
+            Your personal library is untouched: switch to Personal to see or upload your own files.
+          </span>
+        </p>
+      ) : null}
+
       <div className="tab-strip" role="tablist" aria-label="Documents view">
         {TABS.map(({ key, label, icon: Icon }) => (
           <button
@@ -261,10 +268,6 @@ export default function DocumentsPage() {
 
       {tab === "shared" ? (
         <SharedDocumentsPanel />
-      ) : tab === "compare" ? (
-        <CompareDocumentsPanel />
-      ) : tab === "search" ? (
-        <SemanticSearchPanel />
       ) : tab === "trash" ? (
         <TrashPanel onRestored={(document) => setDocuments((previous) => [document, ...previous])} />
       ) : tab === "categories" ? (

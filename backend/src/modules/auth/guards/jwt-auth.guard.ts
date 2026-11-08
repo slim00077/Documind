@@ -1,6 +1,7 @@
 import {
   CanActivate,
   ExecutionContext,
+  ForbiddenException,
   Injectable,
   UnauthorizedException,
 } from "@nestjs/common";
@@ -8,6 +9,7 @@ import { JwtService } from "@nestjs/jwt";
 import type { Request } from "express";
 import { Role } from "../../../../generated/prisma/client";
 import { PrismaService } from "../../../prisma/prisma.service";
+import { enterWorkspace, parseWorkspaceHeader } from "../../access/workspace-context";
 
 export type AuthTokenPayload = {
   userId: number;
@@ -48,7 +50,7 @@ export class JwtAuthGuard implements CanActivate {
 
       if (
         typeof payload.userId !== "number" ||
-        (payload.role !== Role.USER && payload.role !== Role.ADMIN)
+        !Object.values(Role).includes(payload.role)
       ) {
         throw new Error("Invalid token payload");
       }
@@ -67,6 +69,21 @@ export class JwtAuthGuard implements CanActivate {
     if (!user || !user.isActive) {
       throw new UnauthorizedException("This account is no longer active");
     }
+
+    // Optional workspace selector. The header is a hint only: an organization workspace is
+    // honoured solely if the caller is an ACTIVE member of that ACTIVE organization.
+    const organizationId = parseWorkspaceHeader(request.headers["x-workspace"]);
+    if (organizationId === undefined) {
+      throw new ForbiddenException("Invalid workspace");
+    }
+    if (organizationId !== null) {
+      const membership = await this.prisma.organizationMembership.findFirst({
+        where: { organizationId, userId: user.id, status: "ACTIVE", organization: { status: "ACTIVE" } },
+        select: { id: true },
+      });
+      if (!membership) throw new ForbiddenException("You are not an active member of this organization");
+    }
+    enterWorkspace({ userId: user.id, organizationId });
 
     (request as AuthenticatedRequest).user = {
       userId: user.id,

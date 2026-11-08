@@ -79,15 +79,31 @@ export const getDocumentTextRequest = (
 ): Promise<DocumentText> =>
   request<DocumentText>(`/${id}/text`, { method: "GET", token });
 
+export type SearchFilters = {
+  categoryId?: number;
+  mimeType?: string;
+  createdFrom?: string;
+  createdTo?: string;
+  documentIds?: number[];
+  rerank?: "none" | "lexical" | "llm";
+};
+
 export const searchDocumentsRequest = (
   token: string,
   query: string,
-  limit?: number
+  limit?: number,
+  filters: SearchFilters = {}
 ): Promise<SearchResponse> => {
   const params = new URLSearchParams({ query });
   if (limit) {
     params.set("limit", String(limit));
   }
+  if (filters.categoryId) params.set("categoryId", String(filters.categoryId));
+  if (filters.mimeType) params.set("mimeType", filters.mimeType);
+  if (filters.createdFrom) params.set("createdFrom", filters.createdFrom);
+  if (filters.createdTo) params.set("createdTo", filters.createdTo);
+  if (filters.documentIds?.length) params.set("documentIds", filters.documentIds.join(","));
+  if (filters.rerank) params.set("rerank", filters.rerank);
   return request<SearchResponse>(`/search?${params.toString()}`, {
     method: "GET",
     token,

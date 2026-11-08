@@ -4,6 +4,7 @@ import { AssistantService, type AssistantSource } from "../assistant/assistant.s
 import { DocumentSearchService, type SearchResult } from "../documents/document-search.service";
 import { LLM_PROVIDER_TOKEN, type JsonSchema, type LLMProvider, type RetrievedChunk } from "../llm/llm-provider";
 import { MessageRole } from "../../../generated/prisma/client";
+import { anyAccessWhere, workspaceAccessWhere } from "../access/document-access";
 
 const MAX_SEARCHES = 6;
 const MAX_READS = 3;
@@ -96,7 +97,7 @@ export class AgentService {
     const documents = await this.prisma.document.findMany({
       where: {
         deletedAt: null,
-        OR: [{ userId }, { permissions: { some: { userId } } }],
+        ...(documentIds?.length ? anyAccessWhere(userId) : workspaceAccessWhere(userId)),
         ...(documentIds?.length ? { id: { in: documentIds } } : {}),
       },
       select: { id: true, name: true, mimeType: true },
@@ -304,6 +305,9 @@ export class AgentService {
         content: row.content,
         distance: 0,
         similarity: 0.5,
+        score: 0.5,
+        matchType: "semantic",
+        keywordCoverage: 0,
         document: { id: doc.id, name: doc.name, status: "" },
       });
     });

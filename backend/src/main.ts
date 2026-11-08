@@ -7,7 +7,9 @@ import { AppModule } from "./app.module";
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  app.enableCors();
+  // CORS_ORIGIN: comma-separated allowed origins in production; open in local dev.
+  const corsOrigin = process.env.CORS_ORIGIN?.split(",").map((o) => o.trim()).filter(Boolean);
+  app.enableCors(corsOrigin?.length ? { origin: corsOrigin } : undefined);
   app.setGlobalPrefix("api");
   app.useGlobalPipes(
     new ValidationPipe({
@@ -17,6 +19,10 @@ async function bootstrap() {
     }),
   );
 
+  // SIGTERM from Render / Kubernetes / docker stop: close HTTP and the database pool cleanly.
+  app.enableShutdownHooks();
+
+  // Render, Docker and Kubernetes inject PORT. listen() without a host binds every interface.
   const PORT = Number(process.env.PORT ?? 3000);
 
   await app.listen(PORT);

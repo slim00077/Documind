@@ -68,6 +68,7 @@ export type DocumentChunksInfo = {
   documentId: number;
   count: number;
   embeddedCount: number;
+  chunks?: { id: number; chunkIndex: number; content: string }[];
 };
 
 export type GeneratedInsights = {

@@ -8,22 +8,28 @@ datasource db {
 }
 
 model User {
-  id                  Int                  @id @default(autoincrement())
+  id                  Int                       @id @default(autoincrement())
   name                String
-  email               String               @unique
+  email               String                    @unique
   password            String
-  role                Role                 @default(USER)
-  isActive            Boolean              @default(true)
-  theme               Theme                @default(SYSTEM)
-  aiResponseStyle     AiResponseStyle      @default(BALANCED)
+  role                Role                      @default(STUDENT)
+  isActive            Boolean                   @default(true)
+  theme               Theme                     @default(SYSTEM)
+  aiResponseStyle     AiResponseStyle           @default(BALANCED)
   documents           Document[]
   conversations       Conversation[]
   documentPermissions DocumentPermission[]
-  auditLogs           AuditLog[]           @relation("ActorAuditLogs")
+  auditLogs           AuditLog[]                @relation("ActorAuditLogs")
   notifications       Notification[]
   favorites           DocumentFavorite[]
-  createdAt           DateTime             @default(now())
-  updatedAt           DateTime             @updatedAt
+  analyses            DocumentAnalysis[]
+  orgMemberships      OrganizationMembership[]
+  orgJoinRequests     OrganizationJoinRequest[]
+  groupTeacherLinks   GroupTeacher[]
+  groupStudentLinks   GroupStudent[]
+  groupJoinRequests   GroupJoinRequest[]
+  createdAt           DateTime                  @default(now())
+  updatedAt           DateTime                  @updatedAt
 }
 
 model Category {
@@ -35,35 +41,43 @@ model Category {
 }
 
 model Document {
-  id              Int             @id @default(autoincrement())
-  name            String
-  description     String?
-  originalName    String?
-  mimeType        String?
-  size            Int?
-  filePath        String?
-  status          DocumentStatus  @default(PENDING)
-  extractedText   String?
-  processingError String?
+  id                  Int                  @id @default(autoincrement())
+  name                String
+  description         String?
+  originalName        String?
+  mimeType            String?
+  size                Int?
+  filePath            String?
+  status              DocumentStatus       @default(PENDING)
+  extractedText       String?
+  processingError     String?
   // Soft delete: set when moved to Trash, cleared on restore.
-  deletedAt       DateTime?
+  deletedAt           DateTime?
   // AI insights generated on demand: { summary, topics, dates, entities }.
-  insights        Json?
+  insights            Json?
   insightsGeneratedAt DateTime?
   // OCR text and AI image descriptions found in the file: [{ source, ocrText, description }].
-  visualAnalysis  Json?
-  userId          Int
-  categoryId      Int?
-  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  category        Category?       @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  chunks          DocumentChunk[]
-  permissions     DocumentPermission[]
-  versions        DocumentVersion[]
-  favorites       DocumentFavorite[]
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
+  visualAnalysis      Json?
+  userId              Int
+  categoryId          Int?
+  // Sharing context. PERSONAL (default) is owner-only; ORGANIZATION is visible to the
+  // organization's active members; GROUP is visible through DocumentGroupShare rows.
+  scope               DocumentScope        @default(PERSONAL)
+  organizationId      Int?
+  organization        Organization?        @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  groupShares         DocumentGroupShare[]
+  user                User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category            Category?            @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  chunks              DocumentChunk[]
+  permissions         DocumentPermission[]
+  versions            DocumentVersion[]
+  favorites           DocumentFavorite[]
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+
   @@index([userId, createdAt])
   @@index([categoryId])
+  @@index([organizationId, scope])
 }
 
 model DocumentVersion {
@@ -77,6 +91,7 @@ model DocumentVersion {
   createdById  Int?
   document     Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
   createdAt    DateTime @default(now())
+
   @@unique([documentId, version])
 }
 
@@ -89,6 +104,7 @@ model DocumentPermission {
   user       User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt  DateTime     @default(now())
   updatedAt  DateTime     @updatedAt
+
   @@unique([documentId, userId])
   @@index([userId])
 }
@@ -105,52 +121,63 @@ model Notification {
   readAt     DateTime?
   user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt  DateTime  @default(now())
+
   @@index([userId, readAt, createdAt])
 }
 
 model AuditLog {
-  id         Int         @id @default(autoincrement())
-  actorId    Int?
-  actorName  String?
-  actorEmail String?
-  action     AuditAction
-  targetType String?
-  targetId   Int?
-  metadata   Json?
-  ipAddress  String?
-  actor      User?       @relation("ActorAuditLogs", fields: [actorId], references: [id], onDelete: SetNull)
-  createdAt  DateTime    @default(now())
+  id             Int         @id @default(autoincrement())
+  actorId        Int?
+  actorName      String?
+  actorEmail     String?
+  action         AuditAction
+  targetType     String?
+  targetId       Int?
+  metadata       Json?
+  ipAddress      String?
+  // Set for organization-scoped events so an org admin reads only their own history.
+  organizationId Int?
+  actor          User?       @relation("ActorAuditLogs", fields: [actorId], references: [id], onDelete: SetNull)
+  createdAt      DateTime    @default(now())
+
   @@index([createdAt])
   @@index([actorId])
   @@index([action])
+  @@index([organizationId, createdAt])
 }
 
+// NOTE: a custom GIN full-text index ("DocumentChunk_content_fts_idx") exists on
+// this table. Prisma cannot model it, so `prisma migrate dev` may try to drop it;
+// PrismaService re-creates it on startup (CREATE INDEX IF NOT EXISTS). Keep the
+// DROP INDEX out of any generated migration.
 model DocumentChunk {
-  id         Int                     @id @default(autoincrement())
+  id         Int                         @id @default(autoincrement())
   documentId Int
   content    String
   chunkIndex Int
   embedding  Unsupported("vector(384)")?
-  document   Document                @relation(fields: [documentId], references: [id], onDelete: Cascade)
-  createdAt  DateTime                @default(now())
+  document   Document                    @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  createdAt  DateTime                    @default(now())
+
   @@unique([documentId, chunkIndex])
 }
 
 model Conversation {
-  id             Int       @id @default(autoincrement())
-  userId         Int
-  title          String?
+  id               Int       @id @default(autoincrement())
+  userId           Int
+  title            String?
   // Best-effort hint only (which document the last message resolved to), so
   // follow-ups like "explain section 4" can stay scoped to that document.
   // Intentionally not a Prisma relation/FK: it is advisory, not integrity-
   // critical, and should never block a Document from being deleted.
-  lastDocumentId Int?
+  lastDocumentId   Int?
   // When set, the assistant answers from this document only (no fallback).
   scopedDocumentId Int?
-  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  messages       Message[]
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages         Message[]
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
   @@index([userId, updatedAt])
 }
 
@@ -164,6 +191,7 @@ model Message {
   sources        Json?
   conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   createdAt      DateTime     @default(now())
+
   @@index([conversationId, createdAt])
 }
 
@@ -172,9 +200,13 @@ enum MessageRole {
   ASSISTANT
 }
 
+// USER is a legacy value kept for migration safety; existing USER rows are
+// converted to STUDENT. New code must only assign STUDENT, TEACHER or ADMIN.
 enum Role {
   USER
   ADMIN
+  STUDENT
+  TEACHER
 }
 
 enum Theme {
@@ -212,6 +244,30 @@ enum AuditAction {
   CATEGORY_CREATE
   CATEGORY_UPDATE
   CATEGORY_DELETE
+  ORG_CREATE
+  ORG_UPDATE
+  ORG_STATUS_CHANGE
+  ORG_MEMBER_ADD
+  ORG_MEMBER_UPDATE
+  ORG_MEMBER_REMOVE
+  ORG_INVITE_CREATE
+  ORG_INVITE_REVOKE
+  ORG_INVITE_ACCEPT
+  ORG_JOIN_REQUEST
+  ORG_JOIN_REVIEW
+  GROUP_CREATE
+  GROUP_UPDATE
+  GROUP_ARCHIVE
+  GROUP_CODE_ROTATE
+  GROUP_TEACHER_ASSIGN
+  GROUP_TEACHER_REMOVE
+  GROUP_STUDENT_ADD
+  GROUP_STUDENT_REMOVE
+  GROUP_JOIN_REQUEST
+  GROUP_JOIN_REVIEW
+  DOCUMENT_SHARE_GROUP
+  DOCUMENT_UNSHARE_GROUP
+  DOCUMENT_SHARE_ORG
 }
 
 enum DocumentStatus {
@@ -230,6 +286,256 @@ model DocumentFavorite {
   document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
   user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt  DateTime @default(now())
+
   @@unique([documentId, userId])
   @@index([userId])
+}
+
+// Cached on-demand AI analyses; cacheKey encodes the request plus the
+// documents' content fingerprint, so edits naturally invalidate entries.
+model DocumentAnalysis {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  kind      String
+  cacheKey  String
+  result    Json
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, kind, cacheKey])
+}
+
+// ---------------------------------------------------------------------------
+// Organizations, groups and collaboration.
+//
+// Everything below is additive. A user's account (User) and personal workspace
+// (their own documents, conversations, analyses) never depend on any of it:
+// organization membership extends the platform, it is never a prerequisite.
+// "Personal workspace" is deliberately implicit (rows keyed by User.id), so there
+// is no PersonalWorkspace table to keep in sync.
+//
+// NOTE: partial unique indexes exist in SQL only (Prisma cannot express them):
+// GroupJoinRequest / OrganizationJoinRequest / OrganizationInvitation allow a
+// single PENDING row per target. PrismaService re-creates them on startup
+// (CREATE UNIQUE INDEX IF NOT EXISTS) in case a generated migration drops them.
+// ---------------------------------------------------------------------------
+
+enum DocumentScope {
+  PERSONAL
+  ORGANIZATION
+  GROUP
+}
+
+enum OrganizationType {
+  SCHOOL
+  UNIVERSITY
+  TRAINING_CENTER
+  COMPANY
+  OTHER
+}
+
+enum OrganizationStatus {
+  ACTIVE
+  SUSPENDED
+  ARCHIVED
+}
+
+// Role *inside one organization*; unrelated to the global User.role.
+enum OrgRole {
+  ADMIN
+  TEACHER
+  STUDENT
+}
+
+enum MembershipStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+  REMOVED
+}
+
+enum GroupStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+enum GroupTeacherRole {
+  LEAD_TEACHER
+  CO_TEACHER
+}
+
+enum GroupStudentStatus {
+  ACTIVE
+  LEFT
+  REMOVED
+}
+
+enum RequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  REVOKED
+  EXPIRED
+}
+
+model Organization {
+  id               Int                       @id @default(autoincrement())
+  name             String
+  slug             String                    @unique
+  description      String?
+  logo             String?
+  organizationType OrganizationType          @default(OTHER)
+  status           OrganizationStatus        @default(ACTIVE)
+  // Lets people ask to join: private orgs are found only by code, discoverable ones are listed.
+  joinCode         String?                   @unique
+  isDiscoverable   Boolean                   @default(false)
+  memberships      OrganizationMembership[]
+  groups           Group[]
+  invitations      OrganizationInvitation[]
+  joinRequests     OrganizationJoinRequest[]
+  documents        Document[]
+  createdAt        DateTime                  @default(now())
+  updatedAt        DateTime                  @updatedAt
+}
+
+// One row per (organization, user); its status/role change over time, so there can
+// never be two active memberships for the same pair.
+model OrganizationMembership {
+  id             Int              @id @default(autoincrement())
+  organizationId Int
+  userId         Int
+  role           OrgRole
+  status         MembershipStatus @default(ACTIVE)
+  joinedAt       DateTime?
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  @@unique([organizationId, userId])
+  @@index([userId, status])
+  @@index([organizationId, role, status])
+}
+
+model Group {
+  id             Int                  @id @default(autoincrement())
+  organizationId Int
+  name           String
+  description    String?
+  subject        String?
+  academicYear   String?
+  joinCode       String               @unique
+  status         GroupStatus          @default(ACTIVE)
+  createdById    Int
+  organization   Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  teachers       GroupTeacher[]
+  students       GroupStudent[]
+  joinRequests   GroupJoinRequest[]
+  documentShares DocumentGroupShare[]
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+
+  @@index([organizationId, status])
+}
+
+model GroupTeacher {
+  groupId    Int
+  teacherId  Int
+  role       GroupTeacherRole @default(CO_TEACHER)
+  group      Group            @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  teacher    User             @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  assignedAt DateTime         @default(now())
+
+  @@id([groupId, teacherId])
+  @@index([teacherId])
+}
+
+model GroupStudent {
+  groupId   Int
+  studentId Int
+  status    GroupStudentStatus @default(ACTIVE)
+  joinedAt  DateTime           @default(now())
+  addedById Int?
+  group     Group              @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  student   User               @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  createdAt DateTime           @default(now())
+
+  @@id([groupId, studentId])
+  @@index([studentId, status])
+}
+
+model GroupJoinRequest {
+  id           Int           @id @default(autoincrement())
+  groupId      Int
+  studentId    Int
+  status       RequestStatus @default(PENDING)
+  message      String?
+  reviewedById Int?
+  reviewedAt   DateTime?
+  group        Group         @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  student      User          @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@index([groupId, status])
+  @@index([studentId, status])
+}
+
+// A person asking to join an organization (via its code or the discovery page).
+model OrganizationJoinRequest {
+  id             Int           @id @default(autoincrement())
+  organizationId Int
+  userId         Int
+  status         RequestStatus @default(PENDING)
+  message        String?
+  reviewedById   Int?
+  reviewedAt     DateTime?
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@index([organizationId, status])
+  @@index([userId, status])
+}
+
+model OrganizationInvitation {
+  id             Int              @id @default(autoincrement())
+  organizationId Int
+  email          String
+  intendedRole   OrgRole
+  // Optional: a student invited by a teacher/admin to a group joins it on acceptance.
+  groupId        Int?
+  // Only the SHA-256 of the random token is stored; the raw token exists in the link once.
+  tokenHash      String           @unique
+  status         InvitationStatus @default(PENDING)
+  expiresAt      DateTime
+  invitedById    Int
+  acceptedAt     DateTime?
+  acceptedById   Int?
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdAt      DateTime         @default(now())
+
+  @@index([organizationId, status])
+  @@index([email])
+}
+
+// Document shared with a group. Access = active membership in the group (see DocumentAccessService).
+model DocumentGroupShare {
+  id         Int      @id @default(autoincrement())
+  documentId Int
+  groupId    Int
+  sharedById Int
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  group      Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@unique([documentId, groupId])
+  @@index([groupId])
 }

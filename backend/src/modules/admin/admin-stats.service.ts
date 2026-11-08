@@ -15,6 +15,8 @@ export class AdminStatsService {
       totalUsers,
       activeUsers,
       adminCount,
+      studentCount,
+      teacherCount,
       newUsersThisWeek,
       totalDocuments,
       documentsByStatus,
@@ -28,6 +30,8 @@ export class AdminStatsService {
       this.prisma.user.count(),
       this.prisma.user.count({ where: { isActive: true } }),
       this.prisma.user.count({ where: { role: Role.ADMIN } }),
+      this.prisma.user.count({ where: { role: { in: [Role.STUDENT, Role.USER] } } }),
+      this.prisma.user.count({ where: { role: Role.TEACHER } }),
       this.prisma.user.count({ where: { createdAt: { gte: sevenDaysAgo } } }),
       this.prisma.document.count(),
       this.prisma.document.groupBy({
@@ -60,6 +64,8 @@ export class AdminStatsService {
         active: activeUsers,
         disabled: totalUsers - activeUsers,
         admins: adminCount,
+        students: studentCount,
+        teachers: teacherCount,
         newThisWeek: newUsersThisWeek,
       },
       documents: {

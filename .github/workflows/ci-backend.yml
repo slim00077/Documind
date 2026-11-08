@@ -1,0 +1,187 @@
+# CI pipeline 1 - DocuMind API (NestJS + Prisma 7 + PostgreSQL/pgvector).
+# build -> integration tests (+coverage) -> SonarQube quality gate -> Docker image (smoke-tested, pushed on main)
+name: CI - Backend
+
+on:
+  push:
+    branches: [main]
+    paths: ["backend/**", ".github/workflows/ci-backend.yml"]
+  pull_request:
+    paths: ["backend/**", ".github/workflows/ci-backend.yml"]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-backend-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: "24"
+  # onnxruntime-node: skip the optional CUDA download, the CPU runtime is bundled.
+  ONNXRUNTIME_NODE_INSTALL: skip
+
+jobs:
+  build-test:
+    name: Build, audit & integration tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      postgres:
+        image: pgvector/pgvector:pg18
+        env:
+          POSTGRES_USER: documind
+          POSTGRES_PASSWORD: documind
+          POSTGRES_DB: documind_ci
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U documind"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      # Throwaway CI database and secret: nothing here is a real credential.
+      DATABASE_URL: postgresql://documind:documind@localhost:5432/documind_ci?schema=public
+      JWT_SECRET: ci-only-not-a-real-secret
+      # No real AI call in CI: the "none" provider (NullLlmProvider) answers instead of Gemini & co.
+      LLM_PROVIDER_ORDER: none
+      EMBEDDING_PROVIDER: local
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies (lockfile, reproducible)
+        run: npm ci --no-audit --no-fund
+
+      - name: Dependency audit (production dependencies, fail on high/critical)
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Build (prisma generate + tsc)
+        run: npm run build
+
+      - name: Cache the local embedding model
+        uses: actions/cache@v6
+        with:
+          path: backend/node_modules/@huggingface/transformers/.cache
+          key: hf-all-MiniLM-L6-v2-v1
+
+      # scripts/run-tests.js creates an isolated <db>_test database, installs pgvector, applies
+      # every migration from scratch (proves the migration chain) and runs test/*.test.ts.
+      - name: Integration tests with coverage
+        run: npm run test:coverage
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: backend-coverage
+          path: backend/coverage/lcov.info
+          if-no-files-found: warn
+          retention-days: 7
+
+  sonarqube:
+    name: SonarQube analysis & quality gate
+    needs: build-test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+    steps:
+      - name: SonarQube not configured
+        if: env.SONAR_TOKEN == ''
+        run: echo "::warning title=SonarQube skipped::Add the SONAR_TOKEN secret (and SONAR_HOST_URL / SONAR_ORGANIZATION variables) to enable the quality gate."
+
+      - uses: actions/checkout@v7
+        if: env.SONAR_TOKEN != ''
+        with:
+          fetch-depth: 0 # full history: blame data and new-code detection
+
+      - uses: actions/download-artifact@v8
+        if: env.SONAR_TOKEN != ''
+        with:
+          name: backend-coverage
+          path: backend/coverage
+
+      - name: SonarQube scan (waits for the quality gate, fails the job if it is red)
+        if: env.SONAR_TOKEN != ''
+        uses: SonarSource/sonarqube-scan-action@v8
+        env:
+          SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL || 'https://sonarcloud.io' }}
+        with:
+          projectBaseDir: backend
+          args: ${{ vars.SONAR_ORGANIZATION != '' && format('-Dsonar.organization={0}', vars.SONAR_ORGANIZATION) || '' }}
+
+  docker:
+    name: Docker image (build, smoke test, publish)
+    needs: build-test
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    services:
+      postgres:
+        image: pgvector/pgvector:pg18
+        env:
+          POSTGRES_USER: documind
+          POSTGRES_PASSWORD: documind
+          POSTGRES_DB: documind
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U documind"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      IMAGE: ghcr.io/${{ github.repository_owner }}/documind-backend
+      DB_URL: postgresql://documind:documind@localhost:5432/documind?schema=public
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: docker/setup-buildx-action@v4
+
+      - name: Build image
+        uses: docker/build-push-action@v7
+        with:
+          context: backend
+          load: true
+          tags: documind-backend:ci
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,scope=backend,mode=max
+
+      - name: Smoke test - migrations run inside the image (fresh database)
+        run: docker run --rm --network host -e DATABASE_URL="$DB_URL" documind-backend:ci npm run migrate:deploy
+
+      - name: Smoke test - container starts and /api/health is green
+        run: |
+          docker run -d --name api --network host \
+            -e DATABASE_URL="$DB_URL" -e JWT_SECRET=ci-only -e PORT=3000 -e LLM_PROVIDER_ORDER=none \
+            documind-backend:ci
+          for i in $(seq 1 45); do
+            if curl -fsS http://localhost:3000/api/health; then echo; exit 0; fi
+            sleep 2
+          done
+          echo "::error::Backend container did not become healthy"
+          docker logs api
+          exit 1
+
+      - name: Smoke test - authentication is enforced
+        run: |
+          code=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/api/documents)
+          echo "GET /api/documents without token -> $code"
+          test "$code" = "401"
+
+      - name: Publish to GitHub Container Registry (main only)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          docker tag documind-backend:ci "$IMAGE:${{ github.sha }}"
+          docker tag documind-backend:ci "$IMAGE:latest"
+          docker push "$IMAGE:${{ github.sha }}"
+          docker push "$IMAGE:latest"
+          echo "Published $IMAGE:${{ github.sha }}" >> "$GITHUB_STEP_SUMMARY"

@@ -1,0 +1,41 @@
+/* AI intelligence features: citations, search, summaries, comparison, insights.
+   Uses currentColor / translucent fills so it works in light and dark themes. */
+.citation-chip { display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 18px; padding: 0 5px; margin: 0 1px; border-radius: 9px; font-size: .68rem; font-weight: 700; line-height: 1; text-decoration: none; color: #4f46e5; background: rgba(99,102,241,.15); vertical-align: baseline; }
+.citation-chip:hover { background: rgba(99,102,241,.3); }
+.source-panel { margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(148,163,184,.3); font-size: .78rem; white-space: normal; }
+.source-panel summary { cursor: pointer; opacity: .8; }
+.source-panel ol { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 8px; }
+.source-panel li { padding: 8px 10px; border-radius: 10px; background: rgba(148,163,184,.12); }
+.source-title { display: flex; align-items: center; gap: 6px; color: inherit; text-decoration: none; flex-wrap: wrap; }
+.source-title svg { width: 13px; height: 13px; flex: 0 0 auto; color: #6366f1; }
+.source-title span:last-child { opacity: .6; }
+.source-excerpt { margin: 4px 0 2px; font-style: italic; opacity: .8; overflow-wrap: anywhere; }
+.source-meta { font-size: .7rem; opacity: .6; }
+.cited-passage { margin: 16px 0; padding: 14px 16px; border-radius: 14px; border: 1px solid rgba(99,102,241,.45); background: rgba(99,102,241,.08); }
+.cited-passage h3 { margin: 0 0 8px; font-size: .9rem; }
+.cited-passage pre { margin: 0; white-space: pre-wrap; word-break: break-word; font: inherit; font-size: .86rem; line-height: 1.55; }
+.cited-passage .passage-context { opacity: .6; }
+.cited-passage mark { background: rgba(250,204,21,.35); color: inherit; padding: 0 2px; border-radius: 3px; }
+.ai-panel { display: grid; gap: 14px; }
+.ai-toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.ai-toolbar select, .ai-toolbar input { padding: 7px 10px; border-radius: 10px; border: 1px solid rgba(148,163,184,.4); background: transparent; color: inherit; font: inherit; font-size: .85rem; max-width: 100%; }
+.ai-card { padding: 14px 16px; border-radius: 14px; border: 1px solid rgba(148,163,184,.3); background: rgba(148,163,184,.08); }
+.ai-card h3, .ai-card h4 { margin: 0 0 8px; }
+.ai-card ul { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
+.ai-grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+.ai-table-wrap { overflow-x: auto; }
+.ai-table { width: 100%; border-collapse: collapse; font-size: .84rem; }
+.ai-table th, .ai-table td { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid rgba(148,163,184,.3); }
+.ai-badge { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: .7rem; font-weight: 650; background: rgba(99,102,241,.15); color: #4f46e5; }
+.ai-badge-computed { background: rgba(16,185,129,.15); color: #047857; }
+.ai-badge-ai { background: rgba(245,158,11,.18); color: #b45309; }
+.ai-badge-warn { background: rgba(239,68,68,.15); color: #b91c1c; }
+.ai-muted { opacity: .65; font-size: .8rem; }
+.relevance-bar { height: 5px; border-radius: 3px; background: rgba(148,163,184,.3); overflow: hidden; width: 90px; }
+.relevance-bar > span { display: block; height: 100%; background: #6366f1; }
+.search-filters { display: flex; flex-wrap: wrap; gap: 8px; }
+:root[data-theme="dark"] .citation-chip, :root[data-theme="dark"] .ai-badge { color: #a5b4fc; }
+:root[data-theme="dark"] .ai-badge-computed { color: #6ee7b7; }
+:root[data-theme="dark"] .ai-badge-ai { color: #fcd34d; }
+:root[data-theme="dark"] .ai-badge-warn { color: #fca5a5; }
+@media (max-width: 640px) { .ai-grid { grid-template-columns: 1fr; } .source-panel li { padding: 6px 8px; } }

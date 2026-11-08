@@ -1,173 +1,155 @@
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import {
   ArrowRight,
-  Bot,
-  BrainCircuit,
   FileSearch,
-  FolderTree,
-  LogOut,
+  GraduationCap,
+  LayoutDashboard,
+  Lock,
+  MessageSquareText,
+  ScanText,
+  Scale,
   ShieldCheck,
   Sparkles,
-  Upload,
+  Users,
 } from "lucide-react";
-import { useAuth } from "../context/AuthContext";
+import PublicHeader from "../components/layout/PublicHeader";
 import SiteFooter from "../components/layout/SiteFooter";
+import AnimatedBackground from "../components/ui/AnimatedBackground";
+import FeatureCard from "../components/ui/FeatureCard";
+import AnimatedHeroVisual from "../components/landing/AnimatedHeroVisual";
+import ProductDemoPanel, { type DemoKind } from "../components/landing/ProductDemoPanel";
+import { useAuth } from "../context/AuthContext";
+import { homePath } from "../config/roles";
 
-const features = [
-  { icon: BrainCircuit, title: "AI understanding", text: "Turn complex documents into accessible knowledge." },
-  { icon: FileSearch, title: "Intelligent search", text: "Find the right information when it matters." },
-  { icon: FolderTree, title: "Thoughtful organization", text: "Keep a growing document library clear and structured." },
-  { icon: Bot, title: "Ask your documents", text: "Bring document context into AI conversations." },
-  { icon: ShieldCheck, title: "Secure by design", text: "A focused home for your important document work." },
+const BENEFITS: {
+  id: string;
+  kind: DemoKind;
+  title: string;
+  short: string;
+  text: string;
+  icon: typeof Sparkles;
+  tone: "violet" | "cyan" | "blue" | "lavender";
+}[] = [
+  { id: "ask", kind: "assistant", icon: MessageSquareText, tone: "violet", title: "Ask your documents", short: "Questions in plain language, answers with sources.", text: "Type a question the way you would ask a colleague. The answer comes from your own files, with numbered references that open the exact passage." },
+  { id: "find", kind: "search", icon: FileSearch, tone: "cyan", title: "Find information instantly", short: "Search by meaning, not just keywords.", text: "Describe what you are looking for and land on the right page, even when the document uses different words." },
+  { id: "understand", kind: "intelligence", icon: ScanText, tone: "blue", title: "Understand documents faster", short: "Summaries and key facts, pulled out for you.", text: "Turn a long file into a short summary, with the dates, names and figures that matter listed beside it." },
+  { id: "compare", kind: "compare", icon: Scale, tone: "lavender", title: "Compare and discover", short: "See what matches and what changed.", text: "Place two documents side by side to spot similarities and differences, and find related files you forgot you had." },
 ];
 
-const steps = ["Upload", "Process", "Understand", "Ask AI"];
+const STEPS = [
+  { title: "Upload", text: "Add PDFs, Word files, spreadsheets or images to your library." },
+  { title: "Ask", text: "Chat with the assistant or search across everything you own." },
+  { title: "Understand", text: "Get cited answers, summaries and comparisons in seconds." },
+];
+
+const AUDIENCE = [
+  { icon: GraduationCap, tone: "violet", title: "On your own", text: "A private library with an assistant that reads your notes, papers and reports. No organization needed." },
+  { icon: Users, tone: "blue", title: "With your team or class", text: "Share documents with a group and let everyone ask questions of the same sources." },
+  { icon: LayoutDashboard, tone: "lavender", title: "For schools and companies", text: "Run your own organization with teachers, groups, invitations and clear access control." },
+] as const;
 
 export default function WelcomePage() {
-  const { isAuthenticated, user, logout } = useAuth();
-  const navigate = useNavigate();
-
-  const onLogout = () => {
-    logout();
-    navigate("/", { replace: true });
-  };
+  const { isAuthenticated, user } = useAuth();
+  const primary = isAuthenticated ? { to: homePath(user?.role), label: "Open dashboard" } : { to: "/register", label: "Get started" };
 
   return (
-    <div className="welcome-page">
-      <header className="welcome-nav">
-        <Link className="brand" to="/">
-          <span className="brand-mark">D</span>
-          <span>DocuMind</span>
-        </Link>
-        {isAuthenticated ? (
-          <nav aria-label="Welcome navigation">
-            <Link to="/">Home</Link>
-            <Link to="/app/dashboard">Dashboard</Link>
-            <Link to="/app/documents">Documents</Link>
-            <Link to="/app/assistant">AI Assistant</Link>
-          </nav>
-        ) : (
-          <nav aria-label="Welcome navigation">
-            <a href="#top">Home</a>
-            <a href="#features">Features</a>
-            <a href="#how-it-works">How It Works</a>
-          </nav>
-        )}
-        <div className="welcome-actions">
-          {isAuthenticated ? (
-            <>
-              <div className="user-avatar" title={user?.email ?? ""}>
-                {user?.name?.slice(0, 1).toUpperCase() ?? "D"}
-              </div>
-              <button className="button button-secondary" type="button" onClick={onLogout}>
-                <LogOut /> Logout
-              </button>
-            </>
-          ) : (
-            <>
-              <Link className="text-link" to="/login">
-                Login
-              </Link>
-              <Link className="button button-primary" to="/register">
-                Get started <ArrowRight />
-              </Link>
-            </>
-          )}
-        </div>
-      </header>
-      <main>
-        <section className="hero-section" id="top">
-          <div className="hero-copy">
-            <p className="section-kicker">
-              <Sparkles /> Intelligent document management
-            </p>
-            <h1>
-              Make every document <span>understandable.</span>
-            </h1>
-            <p>
-              DocuMind is a calm, intelligent workspace for organizing documents, discovering what
-              they contain, and preparing your knowledge for AI.
-            </p>
-            <div className="hero-actions">
-              {isAuthenticated ? (
-                <Link className="button button-primary" to="/app/dashboard">
-                  Go to Dashboard <ArrowRight />
+    <div className="app landing">
+      <AnimatedBackground />
+      <PublicHeader />
+      <main id="top">
+        <section className="hero">
+          <div className="hero-inner">
+            <div className="hero-copy">
+              <p className="hero-eyebrow">
+                <Sparkles aria-hidden="true" /> AI for your documents
+              </p>
+              <h1>
+                Your Documents. <span>Smarter.</span> With AI.
+              </h1>
+              <p className="hero-lead">
+                Upload your files and ask questions in plain language. DocuMind answers from what you wrote, and shows you exactly
+                where each answer came from.
+              </p>
+              <div className="hero-actions">
+                <Link className="button button-primary button-lg" to={primary.to}>
+                  {primary.label} <ArrowRight />
                 </Link>
-              ) : (
-                <>
-                  <Link className="button button-primary" to="/register">
-                    Get started <ArrowRight />
-                  </Link>
-                  <Link className="button button-secondary" to="/login">
-                    Login
-                  </Link>
-                </>
-              )}
+                <a className="button button-secondary button-lg" href="#features">
+                  See what it does
+                </a>
+              </div>
+              <p className="hero-note">
+                <Lock aria-hidden="true" /> Your documents stay private to you.
+              </p>
             </div>
-          </div>
-          <div className="hero-orbit" aria-hidden="true">
-            <div className="orbit-core">
-              <BrainCircuit />
-              <span>AI-ready</span>
-            </div>
-            <div className="orbit-tag tag-one">Search</div>
-            <div className="orbit-tag tag-two">Organize</div>
-            <div className="orbit-tag tag-three">Understand</div>
+            <AnimatedHeroVisual />
           </div>
         </section>
-        <section className="welcome-section" id="features">
-          <div className="section-intro">
-            <p className="section-kicker">Everything in one place</p>
-            <h2>A smarter home for document work</h2>
-            <p>Designed to keep useful information close, structured, and ready for the next question.</p>
+
+        <section className="section tight" id="features" aria-label="What DocuMind does">
+          <div className="feature-strip">
+            {BENEFITS.map(({ id, icon, tone, title, short }) => (
+              <FeatureCard key={id} icon={icon} tone={tone} title={title} text={short} href={`#${id}`} action="See an example" />
+            ))}
           </div>
-          <div className="feature-grid">
-            {features.map(({ icon: Icon, title, text }) => (
-              <article className="feature-card" key={title}>
-                <Icon />
+        </section>
+
+        <section className="section" aria-labelledby="benefits-title">
+          <div className="section-intro">
+            <p className="section-kicker">What you can do</p>
+            <h2 id="benefits-title">Less searching. More understanding.</h2>
+          </div>
+          {BENEFITS.map(({ id, kind, title, text }, index) => (
+            <div className={`benefit ${index % 2 ? "flip" : ""}`} id={id} key={id}>
+              <div className="benefit-copy">
+                <span className="benefit-num">0{index + 1}</span>
                 <h3>{title}</h3>
                 <p>{text}</p>
-              </article>
-            ))}
+              </div>
+              <ProductDemoPanel kind={kind} />
+            </div>
+          ))}
+        </section>
+
+        <section className="band" id="how-it-works">
+          <div className="section">
+            <div className="section-intro">
+              <p className="section-kicker">How it works</p>
+              <h2>Three steps from file to answer</h2>
+            </div>
+            <ol className="steps">
+              {STEPS.map(({ title, text }, index) => (
+                <li className="step" key={title}>
+                  <span className="step-num">{index + 1}</span>
+                  <h3>{title}</h3>
+                  <p>{text}</p>
+                </li>
+              ))}
+            </ol>
           </div>
         </section>
-        <section className="welcome-section how-section" id="how-it-works">
+
+        <section className="section" id="about">
           <div className="section-intro">
-            <p className="section-kicker">A simple flow</p>
-            <h2>From file to insight</h2>
+            <p className="section-kicker">Who it is for</p>
+            <h2>Use it alone, or bring your organization</h2>
           </div>
-          <div className="steps-grid">
-            {steps.map((step, index) => (
-              <article className="step-card" key={step}>
-                <span>0{index + 1}</span>
-                <Upload />
-                <h3>{step}</h3>
-                <p>
-                  {index === 0
-                    ? "Bring your files into one focused workspace."
-                    : index === 1
-                      ? "Chunk and embed document content for smarter retrieval."
-                      : index === 2
-                        ? "Explore a clear, organized knowledge base."
-                        : "Ask AI questions and get answers grounded in your documents."}
-                </p>
-              </article>
+          <div className="audience">
+            {AUDIENCE.map((item) => (
+              <FeatureCard key={item.title} {...item} />
             ))}
           </div>
+          <p className="trust-note">
+            <ShieldCheck aria-hidden="true" /> Private documents are never visible to other users.
+          </p>
         </section>
-        <section className="final-cta" id="about">
-          <p className="section-kicker">Built for clarity</p>
-          <h2>Your documents should work harder for you.</h2>
-          <p>Start building a more useful document workspace with DocuMind.</p>
-          {isAuthenticated ? (
-            <Link className="button button-primary" to="/app/documents">
-              Open your workspace <ArrowRight />
-            </Link>
-          ) : (
-            <Link className="button button-primary" to="/register">
-              Create your workspace <ArrowRight />
-            </Link>
-          )}
+
+        <section className="final-cta" aria-labelledby="cta-title">
+          <h2 id="cta-title">Start with one document.</h2>
+          <p>Create an account, upload a file and ask it a question.</p>
+          <Link className="button button-primary button-lg" to={primary.to}>
+            {primary.label} <ArrowRight />
+          </Link>
         </section>
       </main>
       <SiteFooter />

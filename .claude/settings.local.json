@@ -1,9 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "PowerShell(node \"C:\\\\Users\\\\salma\\\\.claude\\\\skills\\\\browser-automation\\\\browser.mjs\" \"http://localhost:5173/\" --script \"C:\\\\Users\\\\salma\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-salma-OneDrive-Bureau-ai-document-platform\\\\dd77fdcf-0671-4866-a354-ee121ee62a4d\\\\scratchpad\\\\qa3.mjs\" --timeout 30000)",
-      "PowerShell(node \"C:\\\\Users\\\\salma\\\\.claude\\\\skills\\\\browser-automation\\\\browser.mjs\" \"http://localhost:5173/\" --script \"C:\\\\Users\\\\salma\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-salma-OneDrive-Bureau-ai-document-platform\\\\dd77fdcf-0671-4866-a354-ee121ee62a4d\\\\scratchpad\\\\qa4.mjs\" --timeout 30000)",
-      "PowerShell(node \"C:\\\\Users\\\\salma\\\\.claude\\\\skills\\\\browser-automation\\\\browser.mjs\" \"http://localhost:5173/\" --script \"C:\\\\Users\\\\salma\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-salma-OneDrive-Bureau-ai-document-platform\\\\dd77fdcf-0671-4866-a354-ee121ee62a4d\\\\scratchpad\\\\qa5.mjs\" --timeout 30000)"
-    ]
-  }
-}

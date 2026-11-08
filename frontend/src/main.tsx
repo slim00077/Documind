@@ -4,15 +4,27 @@ import { BrowserRouter } from "react-router-dom";
 import App from "./App";
 import { AuthProvider } from "./context/AuthContext";
 import { ThemeProvider } from "./context/ThemeContext";
-import "./index.css";
-import "./theme.css";
+import { WorkspaceProvider } from "./context/WorkspaceContext";
+import { installWorkspaceFetch } from "./config/workspace";
+import "./styles/tokens.css";
+import "./styles/base.css";
+import "./styles/intelligence.css";
+import "./styles/design.css";
+import "./styles/glass.css";
+import "./styles/org.css";
+import { installSpotlight } from "./components/ui/InteractiveSpotlight";
+
+installSpotlight();
+installWorkspaceFetch();
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <BrowserRouter>
       <AuthProvider>
         <ThemeProvider>
-          <App />
+          <WorkspaceProvider>
+            <App />
+          </WorkspaceProvider>
         </ThemeProvider>
       </AuthProvider>
     </BrowserRouter>

@@ -1,14 +1,18 @@
 import { useState, type FormEvent } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { ApiError } from "../services/auth.api";
+import { GraduationCap } from "lucide-react";
+import AuthShell from "../components/layout/AuthShell";
 
 const emailRegex =
   /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function RegisterPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { register } = useAuth();
+  const fromPath = (location.state as { from?: { pathname?: string } })?.from?.pathname;
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -56,7 +60,8 @@ export default function RegisterPage() {
         email: email.trim(),
         password,
       });
-      navigate("/app", { replace: true });
+      // Coming from an invitation link: go straight back to it. Otherwise offer the two ways to start.
+      navigate(fromPath ?? "/onboarding", { replace: true });
     } catch (submitError) {
       if (submitError instanceof ApiError) {
         setError(submitError.message);
@@ -71,12 +76,15 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="auth-shell">
+    <AuthShell>
       <form className="auth-card" onSubmit={onSubmit} noValidate>
-        <p className="auth-eyebrow">DocuMind</p>
-        <h1 className="auth-title">Create account</h1>
+        <h1 className="auth-title">Create your account</h1>
         <p className="auth-hint">
           Start organizing and understanding your documents with AI.
+        </p>
+        <p className="role-note">
+          <GraduationCap aria-hidden="true" />
+          <span>Your account works on its own: you can join a school, university or company any time, but you never have to.</span>
         </p>
 
         <label className="auth-label" htmlFor="name">
@@ -167,6 +175,6 @@ export default function RegisterPage() {
           <Link to="/login">Sign in</Link>
         </p>
       </form>
-    </div>
+    </AuthShell>
   );
 }

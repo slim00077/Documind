@@ -5,6 +5,7 @@ import {
   type FormEvent,
   type KeyboardEvent,
 } from "react";
+import CitedAnswer from "./CitedAnswer";
 import { useLocation } from "react-router-dom";
 import { Bot, Send, Square, X } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
@@ -98,7 +99,11 @@ export default function FloatingAssistant() {
                   key={message.id}
                   className={`chat-message chat-message-${message.role.toLowerCase()}${message.id === streamingMessageId ? " chat-message-streaming" : ""}`}
                 >
-                  {message.content}
+                  {message.role === "ASSISTANT" ? (
+                    <CitedAnswer content={message.content} sources={message.sources} />
+                  ) : (
+                    message.content
+                  )}
                 </div>
               ))
             )}

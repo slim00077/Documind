@@ -1,0 +1,78 @@
+/* Design tokens. Light is the default; dark swaps the same variables. */
+:root {
+  --bg: #f5f7fb;
+  --surface: #ffffff;
+  --surface-2: #f8fafd;
+  --surface-3: #eef2f8;
+  --text: #0c1431;
+  --text-2: #26324f;
+  --muted: #5b6785;
+  --faint: #8d97b2;
+  --border: #dfe5f0;
+  --border-soft: #e9edf5;
+  --accent: #5b4fd6;
+  --accent-strong: #4a3fc0;
+  --accent-soft: rgba(91, 79, 214, 0.1);
+  --accent-contrast: #ffffff;
+  --grad: linear-gradient(135deg, #6b5ce0 0%, #5645c9 100%);
+  --ai: #0e8aa6;
+  --ai-soft: rgba(14, 138, 166, 0.1);
+  --lavender: #8b84c9;
+  --navy: #0a0f23;
+  --danger: #c2261f;
+  --danger-soft: #fdecea;
+  --danger-line: rgba(194, 38, 31, 0.28);
+  --success: #128a4a;
+  --success-soft: #e3f6ea;
+  --warn: #a8610a;
+  --warn-soft: #fdf1d9;
+  --shadow-c: rgba(12, 20, 49, 0.08);
+  --overlay: rgba(8, 13, 33, 0.5);
+  --shadow-sm: 0 1px 2px rgba(12, 20, 49, 0.05);
+  --shadow-md: 0 8px 24px rgba(12, 20, 49, 0.08);
+  --glass: rgba(255, 255, 255, 0.58);
+  --glass-line: rgba(91, 79, 214, 0.2);
+  --glass-hi: rgba(255, 255, 255, 0.85);
+  --radius: 12px;
+  --radius-lg: 16px;
+  --nav-h: 64px;
+  --font: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  color-scheme: light;
+}
+
+:root[data-theme="dark"],
+.landing {
+  --bg: #0a0f23;
+  --surface: #121932;
+  --surface-2: #0e1429;
+  --surface-3: #1a2240;
+  --text: #eaeefb;
+  --text-2: #c9d2ec;
+  --muted: #9aa6c8;
+  --faint: #6f7ca3;
+  --border: #232d52;
+  --border-soft: #1b2444;
+  --accent: #9b8cff;
+  --accent-strong: #b8adff;
+  --accent-soft: rgba(155, 140, 255, 0.14);
+  --accent-contrast: #0a0f23;
+  --grad: linear-gradient(135deg, #7c6cf0 0%, #6552db 100%);
+  --ai: #5fd0e6;
+  --ai-soft: rgba(95, 208, 230, 0.12);
+  --lavender: #b4aee8;
+  --glass: rgba(25, 35, 70, 0.42);
+  --glass-line: rgba(180, 195, 255, 0.2);
+  --glass-hi: rgba(255, 255, 255, 0.12);
+  --danger: #ff8a82;
+  --danger-soft: rgba(255, 108, 98, 0.12);
+  --danger-line: rgba(255, 138, 130, 0.3);
+  --success: #5fd49a;
+  --success-soft: rgba(95, 212, 154, 0.12);
+  --warn: #f2b45a;
+  --warn-soft: rgba(242, 180, 90, 0.13);
+  --shadow-c: rgba(0, 0, 0, 0.35);
+  --overlay: rgba(2, 5, 16, 0.7);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 10px 30px rgba(0, 0, 0, 0.35);
+  color-scheme: dark;
+}

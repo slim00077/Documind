@@ -12,6 +12,7 @@ export type LogAuditEventInput = {
   targetId?: number;
   metadata?: Record<string, unknown>;
   ipAddress?: string | null;
+  organizationId?: number | null;
 };
 
 type FindAuditLogsFilters = {
@@ -47,6 +48,7 @@ export class AuditLogService {
         targetId: input.targetId,
         metadata: input.metadata as never,
         ipAddress: input.ipAddress ?? null,
+        organizationId: input.organizationId ?? null,
       },
     });
   }

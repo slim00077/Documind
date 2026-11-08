@@ -1,0 +1,14 @@
+# Never send secrets, local data or build output into the image build context.
+.env
+.env.*
+!.env.example
+node_modules
+dist
+generated
+coverage
+uploads
+backups
+query
+*.log
+Dockerfile
+.dockerignore

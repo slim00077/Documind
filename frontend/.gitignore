@@ -22,3 +22,12 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# CI / deployment artifacts
+eslint-report.json
+.vercel
+
+# local environment (the production API URL comes from VITE_API_URL in CI/Vercel)
+.env
+.env.*
+!.env.example

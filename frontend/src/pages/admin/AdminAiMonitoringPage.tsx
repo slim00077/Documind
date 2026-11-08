@@ -5,6 +5,7 @@ import { ApiError, getAiMonitoringRequest } from "../../services/admin.api";
 import type { AiMonitoringSnapshot, AiProviderStatus } from "../../types/admin";
 import { PageState } from "../../components/ui/PageState";
 import { formatRelativeTime } from "../../utils/formatRelativeTime";
+import GlassCard from "../../components/ui/GlassCard";
 
 const REFRESH_MS = 15_000;
 
@@ -85,7 +86,7 @@ export default function AdminAiMonitoringPage() {
       <div className="page-heading">
         <div>
           <p className="section-kicker">Admin</p>
-          <h1>AI monitoring</h1>
+          <h1>Analytics &amp; AI monitoring</h1>
           <p>Live provider activity, errors, and fallbacks for the AI assistant, insights, and comparisons.</p>
         </div>
         <button className="button button-secondary" type="button" onClick={() => void load()}>
@@ -101,35 +102,35 @@ export default function AdminAiMonitoringPage() {
       </p>
 
       <div className="metric-grid">
-        <article className="metric-card">
+        <GlassCard as="article" tone="violet" className="metric-card">
           <Zap />
           <span>Provider requests</span>
           <strong>{formatNumber(live.totals.requests)}</strong>
           <small>{formatNumber(live.totals.successes)} succeeded.</small>
-        </article>
-        <article className="metric-card">
+        </GlassCard>
+        <GlassCard as="article" tone="cyan" className="metric-card">
           <AlertTriangle />
           <span>Errors</span>
           <strong>{formatNumber(live.totals.errors)}</strong>
           <small>{errorRate}% of requests.</small>
-        </article>
-        <article className="metric-card">
+        </GlassCard>
+        <GlassCard as="article" tone="blue" className="metric-card">
           <ArrowRightLeft />
           <span>Fallbacks</span>
           <strong>{formatNumber(live.totals.fallbacks)}</strong>
           <small>Switches to another provider.</small>
-        </article>
-        <article className="metric-card">
+        </GlassCard>
+        <GlassCard as="article" tone="lavender" className="metric-card">
           <Cpu />
           <span>Estimated tokens</span>
           <strong>{formatNumber(totalTokens)}</strong>
           <small>
             {formatNumber(live.totals.estimatedInputTokens)} in · {formatNumber(live.totals.estimatedOutputTokens)} out
           </small>
-        </article>
+        </GlassCard>
       </div>
 
-      <article className="workspace-panel">
+      <GlassCard as="article" tone="violet" className="workspace-panel">
         <div className="panel-heading">
           <div>
             <p className="section-kicker">Fallback order</p>
@@ -196,10 +197,10 @@ export default function AdminAiMonitoringPage() {
             </tbody>
           </table>
         </div>
-      </article>
+      </GlassCard>
 
       <div className="dashboard-panels">
-        <article className="workspace-panel">
+        <GlassCard as="article" tone="cyan" className="workspace-panel">
           <div className="panel-heading">
             <div>
               <p className="section-kicker">Stored in the database</p>
@@ -229,7 +230,7 @@ export default function AdminAiMonitoringPage() {
               <dd>{formatNumber(persisted.indexedChunks)}</dd>
             </div>
           </dl>
-        </article>
+        </GlassCard>
 
         <article className="workspace-panel activity-panel">
           <div className="panel-heading">

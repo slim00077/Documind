@@ -11,6 +11,7 @@ import { Bot, FileText, Microscope, Plus, Send, Square, Trash2 } from "lucide-re
 import { useAuth } from "../context/AuthContext";
 import { ApiError, analyzeDocumentsRequest } from "../services/assistant.api";
 import type { AssistantSource } from "../types/assistant";
+import CitedAnswer from "../components/assistant/CitedAnswer";
 import SuggestedQuestions from "../components/assistant/SuggestedQuestions";
 import { useAssistantConversation } from "../hooks/useAssistantConversation";
 
@@ -233,7 +234,11 @@ export default function AssistantPage() {
                   key={message.id}
                   className={`chat-message chat-message-${message.role.toLowerCase()}${message.id === streamingMessageId ? " chat-message-streaming" : ""}`}
                 >
-                  {message.content}
+                  {message.role === "ASSISTANT" ? (
+                    <CitedAnswer content={message.content} sources={message.sources} />
+                  ) : (
+                    message.content
+                  )}
                 </div>
               ))
             )}
@@ -274,14 +279,12 @@ export default function AssistantPage() {
                 </ul>
               ) : null}
               {analysis.running && !analysis.report ? <p>Working…</p> : null}
-              {analysis.report ? <div style={{ whiteSpace: "pre-wrap" }}>{analysis.report}</div> : null}
-              {analysis.error ? <p role="alert">{analysis.error}</p> : null}
-              {analysis.sources.length > 0 ? (
-                <p>
-                  Sources:{" "}
-                  {[...new Set(analysis.sources.map((source) => source.documentName))].join(", ")}
-                </p>
+              {analysis.report ? (
+                <div style={{ whiteSpace: "pre-wrap" }}>
+                  <CitedAnswer content={analysis.report} sources={analysis.sources} />
+                </div>
               ) : null}
+              {analysis.error ? <p role="alert">{analysis.error}</p> : null}
               {!analysis.running ? (
                 <button type="button" className="button" onClick={() => setAnalysis(null)}>
                   Dismiss

@@ -1,3 +1,4 @@
+import { ROLE_LABEL, normalizeRole } from "../../config/roles";
 import { useEffect, useState } from "react";
 import {
   AlertTriangle,
@@ -35,7 +36,7 @@ export default function AdminUsersPage() {
   const [error, setError] = useState("");
 
   const [search, setSearch] = useState("");
-  const [roleFilter, setRoleFilter] = useState<"all" | "USER" | "ADMIN">("all");
+  const [roleFilter, setRoleFilter] = useState<"all" | "STUDENT" | "TEACHER" | "ADMIN">("all");
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "disabled">("all");
 
   const [editingUser, setEditingUser] = useState<AdminUser | null>(null);
@@ -146,7 +147,8 @@ export default function AdminUsersPage() {
           }}
         >
           <option value="all">All roles</option>
-          <option value="USER">User</option>
+          <option value="STUDENT">Student</option>
+          <option value="TEACHER">Teacher</option>
           <option value="ADMIN">Admin</option>
         </select>
         <select
@@ -203,8 +205,8 @@ export default function AdminUsersPage() {
                   <td>{user.name}</td>
                   <td>{user.email}</td>
                   <td>
-                    <span className={`role-badge ${user.role === "ADMIN" ? "role-badge-admin" : "role-badge-user"}`}>
-                      {user.role}
+                    <span className={`role-chip role-${normalizeRole(user.role).toLowerCase()}`}>
+                      {ROLE_LABEL[normalizeRole(user.role)]}
                     </span>
                   </td>
                   <td>

@@ -11,6 +11,9 @@ import { DocumentsService } from "./documents.service";
 import { DocumentExtractionService } from "./document-extraction.service";
 import { DocumentChunkingService } from "./document-chunking.service";
 import { DocumentEmbeddingsService } from "./document-embeddings.service";
+import { DocumentIntelligenceService } from "./intelligence/document-intelligence.service";
+import { CollectionInsightsService } from "./intelligence/collection-insights.service";
+import { IntelligenceController } from "./intelligence/intelligence.controller";
 import { DocumentSearchService } from "./document-search.service";
 import {
   EMBEDDING_PROVIDER_TOKEN,
@@ -21,7 +24,7 @@ import { OpenAiEmbeddingProvider } from "./embeddings/openai-embedding.provider"
 
 @Module({
   imports: [AuthModule, AuditLogModule, LlmModule, NotificationsModule],
-  controllers: [DocumentsController],
+  controllers: [DocumentsController, IntelligenceController],
   providers: [
     DocumentsService,
     DocumentInsightsService,
@@ -30,6 +33,8 @@ import { OpenAiEmbeddingProvider } from "./embeddings/openai-embedding.provider"
     DocumentEmbeddingsService,
     DocumentSearchService,
     DocumentComparisonService,
+    DocumentIntelligenceService,
+    CollectionInsightsService,
     LocalEmbeddingProvider,
     OpenAiEmbeddingProvider,
     {

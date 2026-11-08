@@ -1,0 +1,59 @@
+# DocuMind web client: stateless nginx, 2 replicas, rolling updates with zero downtime.
+# nginx also proxies /api to the backend Service, so the whole app is reachable on a single
+# NodePort without any ingress controller (http://<node-ip>:30080).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: documind
+  labels: { app.kubernetes.io/name: frontend, app.kubernetes.io/part-of: documind }
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: { maxUnavailable: 0, maxSurge: 1 }
+  selector:
+    matchLabels: { app.kubernetes.io/name: frontend }
+  template:
+    metadata:
+      labels: { app.kubernetes.io/name: frontend, app.kubernetes.io/part-of: documind }
+    spec:
+      imagePullSecrets:
+        - name: ghcr-pull
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 101 # nginx-unprivileged
+      containers:
+        - name: frontend
+          image: ghcr.io/slim00077/documind-frontend:latest
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            # nginx resolves this per request: use the fully-qualified Service name.
+            - name: API_UPSTREAM
+              value: http://backend.documind.svc.cluster.local:3000
+          readinessProbe:
+            httpGet: { path: /healthz, port: http }
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /healthz, port: http }
+            periodSeconds: 20
+          resources:
+            requests: { cpu: 50m, memory: 64Mi }
+            limits: { cpu: 250m, memory: 128Mi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+  namespace: documind
+  labels: { app.kubernetes.io/name: frontend, app.kubernetes.io/part-of: documind }
+spec:
+  type: NodePort
+  selector: { app.kubernetes.io/name: frontend }
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+      nodePort: 30080

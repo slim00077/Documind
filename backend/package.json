@@ -5,8 +5,13 @@
     "db:studio": "npm run db:start && prisma studio",
     "predev": "npm run db:start",
     "dev": "ts-node-dev --respawn --transpile-only src/main.ts",
-    "build": "tsc",
-    "start": "node dist/main.js"
+    "prisma:generate": "prisma generate",
+    "build": "prisma generate && tsc",
+    "typecheck": "tsc --noEmit",
+    "test": "node scripts/run-tests.js",
+    "test:coverage": "node scripts/run-tests.js --coverage",
+    "migrate:deploy": "node scripts/ensure-pgvector.js && prisma migrate deploy",
+    "start": "node dist/src/main.js"
   },
   "devDependencies": {
     "@types/bcrypt": "^6.0.0",
@@ -50,5 +55,9 @@
     "prisma": "^7.9.1",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2"
+  },
+  "allowScripts": {
+    "@prisma/engines": true,
+    "prisma": true
   }
 }

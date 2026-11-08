@@ -92,6 +92,8 @@ export class AuthService {
         name: dto.name.trim(),
         email: normalizedEmail,
         password: hashedPassword,
+        // Public sign-ups are always students; privileged roles are admin-granted.
+        role: Role.STUDENT,
       },
       select: {
         id: true,

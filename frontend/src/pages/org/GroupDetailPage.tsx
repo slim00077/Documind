@@ -1,0 +1,345 @@
+import { useState } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { Archive, ArchiveRestore, Check, FileText, KeyRound, Pencil, Share2, Trash2, UserPlus, UsersRound, X } from "lucide-react";
+import { useAuth } from "../../context/AuthContext";
+import { DOCUMENTS_API_URL } from "../../config/api";
+import { orgApi, type GroupDetail, type Member } from "../../services/organizations.api";
+import { PageState } from "../../components/ui/PageState";
+import ConfirmDialog from "../../components/documents/ConfirmDialog";
+import { useToast } from "../../components/ui/ToastProvider";
+import { Badge, CopyField, ErrorNote, Field, FormModal, formatDate, messageOf, useAsync } from "../../components/org/OrgUi";
+import { formatRelativeTime } from "../../utils/formatRelativeTime";
+import { useOrg } from "./OrgLayout";
+
+type Tab = "members" | "requests" | "documents" | "settings";
+
+export default function GroupDetailPage() {
+  const { token } = useAuth();
+  const { orgId } = useOrg();
+  const gid = Number(useParams().groupId);
+  const { data: group, error, isLoading, reload } = useAsync<GroupDetail>(() => orgApi.group(token!, gid), [token, gid]);
+  const [tab, setTab] = useState<Tab>("members");
+
+  if (error) return <ErrorNote message={error} onRetry={() => void reload()} />;
+  if (isLoading || !group) return <p className="auth-hint">Loading group...</p>;
+  const { canManage, canAdminister } = group.myAccess;
+  const archived = group.status === "ARCHIVED";
+  const tabs: { id: Tab; label: string; show: boolean }[] = [
+    { id: "members", label: "Members", show: true },
+    { id: "requests", label: `Requests${group.pendingRequests ? ` (${group.pendingRequests})` : ""}`, show: canManage },
+    { id: "documents", label: "Documents", show: true },
+    { id: "settings", label: "Settings", show: canManage },
+  ];
+
+  return (
+    <section className="page-stack">
+      <div className="page-heading">
+        <div>
+          <p className="section-kicker"><Link to={`/org/${orgId}/groups`}>Groups</Link> / {group.subject ?? "Group"}</p>
+          <h1>{group.name} <Badge value={group.status} /></h1>
+          <p>{group.description ?? "No description."}{group.academicYear ? ` · ${group.academicYear}` : ""}</p>
+        </div>
+      </div>
+      {archived ? <p className="role-note">This group is archived. Members can still read its documents, but nothing new can be added.</p> : null}
+
+      <div className="org-tabs" role="tablist">
+        {tabs.filter((t) => t.show).map((t) => (
+          <button key={t.id} role="tab" aria-selected={tab === t.id} className={`org-tab ${tab === t.id ? "active" : ""}`} onClick={() => setTab(t.id)}>{t.label}</button>
+        ))}
+      </div>
+
+      {tab === "members" ? <MembersTab group={group} canManage={canManage} canAdminister={canAdminister} archived={archived} onChange={() => void reload()} /> : null}
+      {tab === "requests" && canManage ? <RequestsTab group={group} archived={archived} onChange={() => void reload()} /> : null}
+      {tab === "documents" ? <DocumentsTab group={group} canManage={canManage} archived={archived} /> : null}
+      {tab === "settings" && canManage ? <SettingsTab group={group} canAdminister={canAdminister} onChange={() => void reload()} /> : null}
+    </section>
+  );
+}
+
+// ---------------------------------------------------------------- members
+
+function MembersTab({ group, canManage, canAdminister, archived, onChange }: { group: GroupDetail; canManage: boolean; canAdminister: boolean; archived: boolean; onChange: () => void }) {
+  const { token } = useAuth();
+  const { orgId, role } = useOrg();
+  const { showToast } = useToast();
+  const navigate = useNavigate();
+  const [addStudent, setAddStudent] = useState(false);
+  const [addTeacher, setAddTeacher] = useState(false);
+  const [removing, setRemoving] = useState<{ kind: "student" | "teacher"; id: number; name: string } | null>(null);
+  const [leaving, setLeaving] = useState(false);
+  const [error, setError] = useState("");
+
+  const act = async (fn: () => Promise<unknown>, done: string) => {
+    try { await fn(); showToast(done, "success"); setRemoving(null); setLeaving(false); onChange(); } catch (e) { setError(messageOf(e, "Something went wrong.")); }
+  };
+
+  return (
+    <div className="dash-grid">
+      <article className="workspace-panel">
+        <div className="panel-head">
+          <h2>Teachers</h2>
+          {canAdminister && !archived ? <button className="button button-secondary" onClick={() => setAddTeacher(true)}><UserPlus /> Assign teacher</button> : null}
+        </div>
+        <ul className="org-list">
+          {group.teachers.map((t) => (
+            <li key={t.id}>
+              <span><strong>{t.name}</strong> {t.role ? <Badge value={t.role} /> : null}{t.email ? <span className="meta"> {t.email}</span> : null}</span>
+              {canAdminister && (t.role !== "LEAD_TEACHER" || role === "ADMIN") ? <button className="icon-button" aria-label={`Remove ${t.name}`} onClick={() => setRemoving({ kind: "teacher", id: t.id, name: t.name })}><Trash2 /></button> : null}
+            </li>
+          ))}
+          {group.teachers.length === 0 ? <li><span className="meta">No teacher assigned yet.</span></li> : null}
+        </ul>
+        {!canManage ? (
+          <div className="form-actions"><button className="button button-danger-ghost" onClick={() => setLeaving(true)}>Leave group</button></div>
+        ) : null}
+      </article>
+
+      {canManage ? (
+        <article className="workspace-panel">
+          <div className="panel-head">
+            <h2>Students ({group.students?.length ?? 0})</h2>
+            {!archived ? <button className="button button-primary" onClick={() => setAddStudent(true)}><UserPlus /> Add student</button> : null}
+          </div>
+          {!group.students || group.students.length === 0 ? <p className="inline-empty">No students yet. Add one, or share the group code.</p> : (
+            <div className="admin-table-wrap">
+              <table className="admin-table">
+                <thead><tr><th>Name</th><th>Email</th><th>Joined</th><th></th></tr></thead>
+                <tbody>
+                  {group.students.map((s) => (
+                    <tr key={s.id}>
+                      <td><strong>{s.name}</strong></td><td>{s.email}</td><td>{formatDate(s.joinedAt)}</td>
+                      <td><button className="icon-button" aria-label={`Remove ${s.name}`} onClick={() => setRemoving({ kind: "student", id: s.id, name: s.name })}><Trash2 /></button></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </article>
+      ) : (
+        <article className="workspace-panel">
+          <div className="panel-head"><h2>About this group</h2></div>
+          <p className="meta">You are a member of this group. Documents your teachers share appear in the Documents tab.</p>
+        </article>
+      )}
+
+      {addStudent ? <AddStudentModal group={group} onClose={() => setAddStudent(false)} onDone={() => { setAddStudent(false); showToast("Student added.", "success"); onChange(); }} /> : null}
+      {addTeacher ? <AssignTeacherModal group={group} onClose={() => setAddTeacher(false)} onDone={() => { setAddTeacher(false); showToast("Teacher assigned.", "success"); onChange(); }} /> : null}
+      {removing ? (
+        <ConfirmDialog title={`Remove ${removing.name}?`} confirmLabel="Remove" error={error}
+          message={removing.kind === "student" ? "They immediately lose access to this group's documents." : "They will no longer manage this group."}
+          onConfirm={() => void act(() => (removing.kind === "student" ? orgApi.removeStudent(token!, group.id, removing.id) : orgApi.unassignTeacher(token!, group.id, removing.id)), "Removed.")}
+          onCancel={() => { setRemoving(null); setError(""); }} />
+      ) : null}
+      {leaving ? (
+        <ConfirmDialog title="Leave this group?" message="You will lose access to its shared documents. You can ask to join again later." confirmLabel="Leave" error={error}
+          onConfirm={() => void act(async () => { await orgApi.leaveGroup(token!, group.id); navigate(`/org/${orgId}/groups`); }, "You left the group.")}
+          onCancel={() => { setLeaving(false); setError(""); }} />
+      ) : null}
+    </div>
+  );
+}
+
+function AddStudentModal({ group, onClose, onDone }: { group: GroupDetail; onClose: () => void; onDone: () => void }) {
+  const { token } = useAuth();
+  const { orgId } = useOrg();
+  const [search, setSearch] = useState("");
+  const [pick, setPick] = useState("");
+  const students = useAsync(() => orgApi.students(token!, orgId, { pageSize: 100, search }), [token, orgId, search]);
+  const inGroup = new Set(group.students?.map((s) => s.id));
+  // Teachers only see students of their own groups through the directory; admins see everyone.
+  const options = (students.data?.items ?? []).filter((s) => !inGroup.has(s.userId));
+  return (
+    <FormModal title="Add a student" submitLabel="Add to group" onClose={onClose} onSubmit={async () => { await orgApi.addStudent(token!, group.id, Number(pick)); onDone(); }}>
+      <Field label="Find a student in this organization"><input className="auth-input" type="search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Name or email" autoFocus /></Field>
+      <Field label="Student" hint="Only students of this organization can be added. To bring in someone new, send an invitation from the Invitations page.">
+        <select className="auth-input filter-select" size={Math.min(Math.max(options.length, 2), 6)} value={pick} onChange={(e) => setPick(e.target.value)} required>
+          {options.map((s) => <option key={s.userId} value={s.userId}>{s.name} ({s.email})</option>)}
+        </select>
+      </Field>
+    </FormModal>
+  );
+}
+
+function AssignTeacherModal({ group, onClose, onDone }: { group: GroupDetail; onClose: () => void; onDone: () => void }) {
+  const { token } = useAuth();
+  const { orgId, role } = useOrg();
+  const [pick, setPick] = useState("");
+  const [lead, setLead] = useState(false);
+  const teachers = useAsync(() => orgApi.members(token!, orgId, { role: "TEACHER", status: "ACTIVE", pageSize: 100 }), [token, orgId]);
+  const assigned = new Set(group.teachers.map((t) => t.id));
+  const options = (teachers.data?.items ?? []).filter((t: Member) => !assigned.has(t.userId));
+  return (
+    <FormModal title="Assign a teacher" submitLabel="Assign" onClose={onClose} onSubmit={async () => { await orgApi.assignTeacher(token!, group.id, Number(pick), lead ? "LEAD_TEACHER" : "CO_TEACHER"); onDone(); }}>
+      {role !== "ADMIN" ? <p className="meta">Teachers you add join as co-teachers. Co-teachers can manage students and requests, but cannot edit the group.</p> : null}
+      <Field label="Teacher">
+        <select className="auth-input filter-select" value={pick} onChange={(e) => setPick(e.target.value)} required>
+          <option value="">Choose a teacher</option>
+          {options.map((t) => <option key={t.userId} value={t.userId}>{t.name} ({t.email})</option>)}
+        </select>
+      </Field>
+      {role === "ADMIN" ? <label className="org-check"><input type="checkbox" checked={lead} onChange={(e) => setLead(e.target.checked)} /><span>Make this person a lead teacher</span></label> : null}
+    </FormModal>
+  );
+}
+
+// --------------------------------------------------------------- requests
+
+function RequestsTab({ group, archived, onChange }: { group: GroupDetail; archived: boolean; onChange: () => void }) {
+  const { token } = useAuth();
+  const { showToast } = useToast();
+  const { data, error, isLoading, reload } = useAsync(() => orgApi.groupRequests(token!, group.id), [token, group.id]);
+
+  const review = async (id: number, approve: boolean) => {
+    try { await orgApi.reviewGroupRequest(token!, group.id, id, approve); showToast(approve ? "Student approved." : "Request declined.", "success"); void reload(); onChange(); }
+    catch (e) { showToast(messageOf(e, "Unable to review this request."), "error"); }
+  };
+
+  if (error) return <ErrorNote message={error} onRetry={() => void reload()} />;
+  if (isLoading || !data) return <p className="auth-hint">Loading requests...</p>;
+  if (data.length === 0) return <PageState icon={Check} title="No pending requests" message="When a student asks to join, you can approve or decline here." />;
+  return (
+    <div className="admin-table-wrap">
+      <table className="admin-table">
+        <thead><tr><th>Student</th><th>Message</th><th>Requested</th><th></th></tr></thead>
+        <tbody>
+          {data.map((r) => (
+            <tr key={r.id}>
+              <td><strong>{r.student.name}</strong><div className="meta">{r.student.email}</div></td>
+              <td>{r.message ?? <span className="meta">-</span>}</td>
+              <td>{formatRelativeTime(r.createdAt)}</td>
+              <td>
+                <div className="org-row-actions">
+                  <button className="button button-primary" disabled={archived} onClick={() => void review(r.id, true)}><Check /> Approve</button>
+                  <button className="button button-secondary" onClick={() => void review(r.id, false)}><X /> Decline</button>
+                </div>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+// -------------------------------------------------------------- documents
+
+function DocumentsTab({ group, canManage, archived }: { group: GroupDetail; canManage: boolean; archived: boolean }) {
+  const { token } = useAuth();
+  const { showToast } = useToast();
+  const [sharing, setSharing] = useState(false);
+  const { data, error, isLoading, reload } = useAsync(() => orgApi.groupDocuments(token!, group.id), [token, group.id]);
+
+  const unshare = async (id: number) => {
+    try { await orgApi.unshareFromGroup(token!, group.id, id); showToast("Stopped sharing.", "success"); void reload(); }
+    catch (e) { showToast(messageOf(e, "Unable to stop sharing."), "error"); }
+  };
+
+  return (
+    <article className="workspace-panel">
+      <div className="panel-head">
+        <h2>Shared documents</h2>
+        {canManage && !archived ? <button className="button button-primary" onClick={() => setSharing(true)}><Share2 /> Share a document</button> : null}
+      </div>
+      {error ? <ErrorNote message={error} onRetry={() => void reload()} /> : isLoading || !data ? <p className="auth-hint">Loading...</p> : data.length === 0 ? (
+        <PageState compact icon={FileText} title="Nothing shared yet" message={canManage ? "Share one of your documents so group members can read it and ask the AI about it." : "Documents your teachers share will appear here."} />
+      ) : (
+        <ul className="org-list">
+          {data.map((d) => (
+            <li key={d.id}>
+              <span><Link to={`/app/documents/${d.id}`}><FileText /> {d.name}</Link> <span className="meta">by {d.owner?.name} · {formatDate(d.sharedAt)}</span></span>
+              {canManage ? <button className="icon-button" aria-label={`Stop sharing ${d.name}`} onClick={() => void unshare(d.id)}><Trash2 /></button> : null}
+            </li>
+          ))}
+        </ul>
+      )}
+      {sharing ? <ShareModal group={group} onClose={() => setSharing(false)} onDone={() => { setSharing(false); showToast("Document shared with the group.", "success"); void reload(); }} /> : null}
+    </article>
+  );
+}
+
+function ShareModal({ group, onClose, onDone }: { group: GroupDetail; onClose: () => void; onDone: () => void }) {
+  const { token } = useAuth();
+  const [pick, setPick] = useState("");
+  // Sharing starts from the user's own library, so ask for the personal workspace explicitly.
+  const docs = useAsync(async () => {
+    const response = await fetch(DOCUMENTS_API_URL, { headers: { Authorization: `Bearer ${token}`, "X-Workspace": "personal" } });
+    if (!response.ok) throw new Error("Unable to load your documents.");
+    return ((await response.json()) as { id: number; name: string; accessRole: string; status: string }[]).filter((d) => d.accessRole === "OWNER");
+  }, [token]);
+  return (
+    <FormModal title={`Share with ${group.name}`} submitLabel="Share" onClose={onClose} onSubmit={async () => { await orgApi.shareWithGroup(token!, group.id, Number(pick)); onDone(); }}>
+      <p className="meta">Group members get read-only access, including AI search and questions. You stay the owner and can stop sharing at any time.</p>
+      <Field label="Your document">
+        <select className="auth-input filter-select" value={pick} onChange={(e) => setPick(e.target.value)} required>
+          <option value="">{docs.isLoading ? "Loading..." : "Choose a document"}</option>
+          {docs.data?.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+        </select>
+      </Field>
+    </FormModal>
+  );
+}
+
+// --------------------------------------------------------------- settings
+
+function SettingsTab({ group, canAdminister, onChange }: { group: GroupDetail; canAdminister: boolean; onChange: () => void }) {
+  const { token } = useAuth();
+  const { orgId } = useOrg();
+  const { showToast } = useToast();
+  const [editing, setEditing] = useState(false);
+  const [confirmArchive, setConfirmArchive] = useState(false);
+  const archived = group.status === "ARCHIVED";
+
+  const run = async (fn: () => Promise<unknown>, done: string) => {
+    try { await fn(); showToast(done, "success"); onChange(); } catch (e) { showToast(messageOf(e, "Something went wrong."), "error"); }
+  };
+
+  return (
+    <div className="dash-grid">
+      <article className="workspace-panel">
+        <div className="panel-head"><h2>Join code</h2></div>
+        <p className="meta">Students of this organization can enter this code to ask to join. You still approve every request.</p>
+        {group.joinCode ? <CopyField value={group.joinCode} label="Group join code" /> : null}
+        <div className="form-actions">
+          <button className="button button-secondary" disabled={!canAdminister || archived} onClick={() => void run(() => orgApi.rotateGroupCode(token!, group.id), "New code generated. The old code no longer works.")}><KeyRound /> Generate a new code</button>
+        </div>
+        {!canAdminister ? <p className="meta">Only the lead teacher or an administrator can change the code.</p> : null}
+      </article>
+      <article className="workspace-panel">
+        <div className="panel-head"><h2>Group details</h2></div>
+        <div className="form-actions" style={{ justifyContent: "flex-start", flexWrap: "wrap" }}>
+          <button className="button button-secondary" disabled={!canAdminister || archived} onClick={() => setEditing(true)}><Pencil /> Edit details</button>
+          {archived
+            ? <button className="button button-secondary" disabled={!canAdminister} onClick={() => void run(() => orgApi.archiveGroup(token!, group.id, false), "Group restored.")}><ArchiveRestore /> Restore group</button>
+            : <button className="button button-danger-ghost" disabled={!canAdminister} onClick={() => setConfirmArchive(true)}><Archive /> Archive group</button>}
+        </div>
+        <p className="meta"><UsersRound /> Archiving makes the group read-only. Members keep reading its documents; no one can join or be added.</p>
+        {!canAdminister ? <p className="meta">Only the lead teacher or an administrator can edit or archive this group. Co-teachers manage students, requests and documents.</p> : null}
+      </article>
+      {editing ? <EditGroupModal group={group} onClose={() => setEditing(false)} onDone={() => { setEditing(false); onChange(); }} /> : null}
+      {confirmArchive ? (
+        <ConfirmDialog title="Archive this group?" message="Pending requests are closed and no one can join. Members keep read-only access to shared documents. You can restore the group later." confirmLabel="Archive"
+          onConfirm={() => { setConfirmArchive(false); void run(() => orgApi.archiveGroup(token!, group.id, true), "Group archived."); }} onCancel={() => setConfirmArchive(false)} />
+      ) : null}
+      <p className="meta" style={{ gridColumn: "1 / -1" }}><Link to={`/org/${orgId}/groups`}>Back to groups</Link></p>
+    </div>
+  );
+}
+
+function EditGroupModal({ group, onClose, onDone }: { group: GroupDetail; onClose: () => void; onDone: () => void }) {
+  const { token } = useAuth();
+  const [name, setName] = useState(group.name);
+  const [subject, setSubject] = useState(group.subject ?? "");
+  const [year, setYear] = useState(group.academicYear ?? "");
+  const [description, setDescription] = useState(group.description ?? "");
+  return (
+    <FormModal title="Edit group" submitLabel="Save" onClose={onClose} wide onSubmit={async () => { await orgApi.updateGroup(token!, group.id, { name, subject, academicYear: year, description }); onDone(); }}>
+      <Field label="Name"><input className="auth-input" value={name} onChange={(e) => setName(e.target.value)} required minLength={2} maxLength={120} /></Field>
+      <div className="org-two-col">
+        <Field label="Subject"><input className="auth-input" value={subject} onChange={(e) => setSubject(e.target.value)} maxLength={120} /></Field>
+        <Field label="Academic year"><input className="auth-input" value={year} onChange={(e) => setYear(e.target.value)} maxLength={40} /></Field>
+      </div>
+      <Field label="Description"><textarea className="auth-input" rows={3} value={description} onChange={(e) => setDescription(e.target.value)} maxLength={1000} /></Field>
+    </FormModal>
+  );
+}

@@ -3,6 +3,7 @@ import { PrismaService } from "../../prisma/prisma.service";
 import { AssistantService, type AssistantSource } from "../assistant/assistant.service";
 import { MessageRole } from "../../../generated/prisma/client";
 import type { ConversationTurn } from "../llm/llm-provider";
+import { anyAccessWhere } from "../access/document-access";
 
 export type ConversationStreamEvent =
   | { type: "delta"; text: string }
@@ -37,7 +38,7 @@ export class ConversationService {
         where: {
           id: documentId,
           deletedAt: null,
-          OR: [{ userId }, { permissions: { some: { userId } } }],
+          ...anyAccessWhere(userId),
         },
         select: { id: true, name: true },
       });
@@ -102,7 +103,7 @@ export class ConversationService {
 
     const scopedDocument = conversation.scopedDocumentId
       ? await this.prisma.document.findFirst({
-          where: { id: conversation.scopedDocumentId, deletedAt: null },
+          where: { id: conversation.scopedDocumentId, deletedAt: null, ...anyAccessWhere(userId) },
           select: { id: true, name: true },
         })
       : null;

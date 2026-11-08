@@ -14,6 +14,7 @@ import {
   type LLMProvider,
   type RetrievedChunk,
 } from "../llm/llm-provider";
+import { workspaceAccessWhere } from "../access/document-access";
 
 const LLM_UNAVAILABLE_MESSAGE =
   "The assistant couldn't generate an answer right now. Please try again shortly.";
@@ -59,11 +60,26 @@ export type AssistantSource = {
   documentName: string;
   chunkIndex: number;
   similarity: number;
+  /** Fused hybrid-search relevance, 0..1. */
+  score?: number;
+  matchType?: "semantic" | "keyword" | "hybrid";
+  /** Start of the cited passage, so the UI can show/locate the evidence. */
+  excerpt?: string;
   /** Set when the passage came from an image, chart, diagram or scanned page. */
   visual?: { label: string; documentIsImage: boolean } | null;
 };
 
 type VisualItem = { source: string; ocrText: string; description: string };
+
+// A passage is relevant by semantic closeness, or because it verbatim contains
+// most of the query's meaningful terms (names, dates, identifiers) found by the
+// keyword side of hybrid search - which cosine similarity alone can miss.
+const KEYWORD_RELEVANT_COVERAGE = 0.5;
+const isRelevant = (result: SearchResult, minSimilarity: number) =>
+  result.similarity >= minSimilarity ||
+  (result.matchType !== "semantic" && result.keywordCoverage >= KEYWORD_RELEVANT_COVERAGE);
+
+const EXCERPT_LENGTH = 240;
 
 const normalizeSpace = (value: string) => value.replace(/\s+/g, " ").trim();
 
@@ -201,7 +217,7 @@ export class AssistantService {
     const documents = await this.prisma.document.findMany({
       where: {
         deletedAt: null,
-        OR: [{ userId }, { permissions: { some: { userId } } }],
+        ...workspaceAccessWhere(userId),
       },
       select: { id: true, name: true, originalName: true },
     });
@@ -232,10 +248,8 @@ export class AssistantService {
     // one this conversation was already discussing - carries less risk of
     // pulling in unrelated content, so a vague follow-up gets a lower bar to
     // clear than a completely open, unscoped search would.
-    let relevant = searchResult.results.filter(
-      (result) =>
-        result.similarity >=
-        (usedScope ? SCOPED_MIN_RELEVANT_SIMILARITY : MIN_RELEVANT_SIMILARITY),
+    let relevant = searchResult.results.filter((result) =>
+      isRelevant(result, usedScope ? SCOPED_MIN_RELEVANT_SIMILARITY : MIN_RELEVANT_SIMILARITY),
     );
 
     // A named/scoped document that doesn't actually contain relevant chunks
@@ -249,8 +263,8 @@ export class AssistantService {
         CONTEXT_CHUNK_LIMIT,
       );
       usedScope = false;
-      relevant = searchResult.results.filter(
-        (result) => result.similarity >= MIN_RELEVANT_SIMILARITY,
+      relevant = searchResult.results.filter((result) =>
+        isRelevant(result, MIN_RELEVANT_SIMILARITY),
       );
     }
 
@@ -302,8 +316,8 @@ export class AssistantService {
     // the similarity bar even though the answer is right there. Since the
     // search is already limited to this one document, fall back to its
     // best-ranked passages and let the model say if they don't answer it.
-    const aboveThreshold = searchResult.results.filter(
-      (result) => result.similarity >= SCOPED_MIN_RELEVANT_SIMILARITY,
+    const aboveThreshold = searchResult.results.filter((result) =>
+      isRelevant(result, SCOPED_MIN_RELEVANT_SIMILARITY),
     );
     const relevant =
       aboveThreshold.length > 0
@@ -359,6 +373,9 @@ export class AssistantService {
         documentName: result.document.name,
         chunkIndex: result.chunkIndex,
         similarity: result.similarity,
+        score: result.score,
+        matchType: result.matchType,
+        excerpt: normalizeSpace(result.content).slice(0, EXCERPT_LENGTH),
         visual: this.findVisualOrigin(
           result.content,
           items,

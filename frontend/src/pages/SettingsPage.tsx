@@ -9,9 +9,12 @@ import {
   Sparkles,
   Sun,
   UserRound,
+  Building2,
 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { useWorkspace } from "../context/WorkspaceContext";
+import { Badge } from "../components/org/OrgUi";
 import { useTheme } from "../context/ThemeContext";
 import {
   ApiError,
@@ -23,13 +26,14 @@ import {
 } from "../services/auth.api";
 import { useToast } from "../components/ui/ToastProvider";
 
-type SettingsTab = "profile" | "security" | "appearance" | "ai";
+type SettingsTab = "profile" | "security" | "appearance" | "ai" | "organizations";
 
 const TABS: { key: SettingsTab; label: string; icon: typeof UserRound }[] = [
   { key: "profile", label: "Profile", icon: UserRound },
   { key: "security", label: "Security", icon: KeyRound },
   { key: "appearance", label: "Appearance", icon: Sun },
   { key: "ai", label: "AI preferences", icon: Bot },
+  { key: "organizations", label: "Organizations", icon: Building2 },
 ];
 
 const THEME_OPTIONS: { value: Theme; label: string; hint: string; icon: typeof Sun }[] = [
@@ -45,6 +49,7 @@ const AI_STYLE_OPTIONS: { value: AiResponseStyle; label: string; hint: string }[
 ];
 
 export default function SettingsPage() {
+  const { memberships, selectOrg } = useWorkspace();
   const { user, token, logout, updateUser } = useAuth();
   const { theme, setTheme } = useTheme();
   const { showToast } = useToast();
@@ -293,6 +298,28 @@ export default function SettingsPage() {
                 </button>
               ))}
             </div>
+          </div>
+        ) : null}
+
+        {tab === "organizations" ? (
+          <div className="settings-panel">
+            <h2>Organizations</h2>
+            <p className="settings-panel-hint">
+              Organizations are optional. Your personal documents, conversations and settings belong to you and stay private when you join or leave one.
+            </p>
+            {memberships.length === 0 ? (
+              <p className="inline-empty">You are not part of any organization.</p>
+            ) : (
+              <ul className="org-list">
+                {memberships.map((m) => (
+                  <li key={m.membershipId}>
+                    <span><strong>{m.organization.name}</strong> <Badge value={m.role} /></span>
+                    <Link className="button button-secondary" to={`/org/${m.organization.id}/settings`} onClick={() => selectOrg(m.organization.id)}>Manage membership</Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div className="form-actions"><Link className="button button-primary" to="/app/join">Join an organization</Link></div>
           </div>
         ) : null}
 

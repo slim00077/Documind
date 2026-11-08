@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   AlertTriangle,
+  Bot,
   FileText,
   HardDrive,
   MessageSquare,
@@ -11,12 +12,13 @@ import {
   UserX,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
-import { ApiError, getAdminStatsRequest } from "../../services/admin.api";
-import type { AdminStatsOverview } from "../../types/admin";
+import { ApiError, getAdminStatsRequest, getAiMonitoringRequest } from "../../services/admin.api";
+import type { AdminStatsOverview, AiMonitoringSnapshot } from "../../types/admin";
 import { PageState } from "../../components/ui/PageState";
 import { SkeletonMetricCard } from "../../components/ui/Skeleton";
 import { formatFileSize } from "../../utils/formatFileSize";
 import { formatRelativeTime } from "../../utils/formatRelativeTime";
+import GlassCard from "../../components/ui/GlassCard";
 
 const ACTION_LABELS: Record<string, string> = {
   LOGIN: "Logged in",
@@ -40,6 +42,7 @@ const ACTION_LABELS: Record<string, string> = {
 export default function AdminOverviewPage() {
   const { token } = useAuth();
   const [stats, setStats] = useState<AdminStatsOverview | null>(null);
+  const [ai, setAi] = useState<AiMonitoringSnapshot | null>(null);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(true);
 
@@ -47,8 +50,12 @@ export default function AdminOverviewPage() {
     setIsLoading(true);
     setError("");
     try {
-      const result = await getAdminStatsRequest(activeToken);
+      const [result, aiSnapshot] = await Promise.all([
+        getAdminStatsRequest(activeToken),
+        getAiMonitoringRequest(activeToken).catch(() => null),
+      ]);
       setStats(result);
+      setAi(aiSnapshot);
     } catch (loadError) {
       setError(
         loadError instanceof ApiError
@@ -107,7 +114,7 @@ export default function AdminOverviewPage() {
       <div className="page-heading">
         <div>
           <p className="section-kicker">Admin dashboard</p>
-          <h1>Overview</h1>
+          <h1>Platform overview</h1>
           <p>Real-time statistics across users, documents, and the AI assistant.</p>
         </div>
         <Link className="button button-primary" to="/admin/users">
@@ -116,34 +123,34 @@ export default function AdminOverviewPage() {
       </div>
 
       <div className="metric-grid">
-        <article className="metric-card">
+        <GlassCard as="article" tone="violet" className="metric-card">
           <Users />
           <span>Total users</span>
           <strong>{stats.users.total}</strong>
           <small>{stats.users.newThisWeek} new in the last 7 days.</small>
-        </article>
-        <article className="metric-card">
+        </GlassCard>
+        <GlassCard as="article" tone="cyan" className="metric-card">
           <UserCheck />
           <span>Active users</span>
           <strong>{stats.users.active}</strong>
-          <small>{stats.users.admins} admin{stats.users.admins === 1 ? "" : "s"}.</small>
-        </article>
-        <article className="metric-card">
+          <small>{stats.users.students} students, {stats.users.teachers} teachers, {stats.users.admins} admin{stats.users.admins === 1 ? "" : "s"}.</small>
+        </GlassCard>
+        <GlassCard as="article" tone="blue" className="metric-card">
           <UserX />
           <span>Disabled users</span>
           <strong>{stats.users.disabled}</strong>
           <small>Blocked from signing in.</small>
-        </article>
-        <article className="metric-card">
+        </GlassCard>
+        <GlassCard as="article" tone="lavender" className="metric-card">
           <FileText />
           <span>Documents</span>
           <strong>{stats.documents.total}</strong>
           <small>{stats.documents.newThisWeek} uploaded this week.</small>
-        </article>
+        </GlassCard>
       </div>
 
       <div className="dashboard-panels">
-        <article className="workspace-panel">
+        <GlassCard as="article" tone="violet" className="workspace-panel">
           <div className="panel-heading">
             <div>
               <p className="section-kicker">Storage</p>
@@ -177,7 +184,32 @@ export default function AdminOverviewPage() {
               </div>
             ))}
           </div>
-        </article>
+        </GlassCard>
+
+        <GlassCard as="article" tone="cyan" className="workspace-panel">
+          <div className="panel-heading">
+            <div>
+              <p className="section-kicker">AI usage</p>
+              <h2>Providers &amp; tokens</h2>
+            </div>
+            <Bot />
+          </div>
+          {ai ? (
+            <>
+              <dl className="insights-list">
+                <div><dt>Requests since restart</dt><dd>{ai.live.totals.requests}</dd></div>
+                <div><dt>Errors / fallbacks</dt><dd>{ai.live.totals.errors} / {ai.live.totals.fallbacks}</dd></div>
+                <div><dt>Estimated tokens (in / out)</dt><dd>{ai.live.totals.estimatedInputTokens.toLocaleString()} / {ai.live.totals.estimatedOutputTokens.toLocaleString()}</dd></div>
+                <div><dt>Assistant answers (24h / 7d)</dt><dd>{ai.persisted.assistantAnswersLast24h} / {ai.persisted.assistantAnswersLast7d}</dd></div>
+              </dl>
+              <div className="form-actions">
+                <Link className="text-link" to="/admin/ai-monitoring">Open provider monitoring</Link>
+              </div>
+            </>
+          ) : (
+            <p className="inline-empty">AI monitoring data is unavailable right now.</p>
+          )}
+        </GlassCard>
 
         <article className="workspace-panel activity-panel">
           <div className="panel-heading">

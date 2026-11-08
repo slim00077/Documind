@@ -66,7 +66,9 @@ export class OllamaLlmProvider implements LLMProvider {
         `Local Ollama server is not reachable at ${this.baseUrl}: ${
           networkError instanceof Error ? networkError.message : String(networkError)
         }`,
-        "transient",
+        // Not installed/running: retrying only delays failover, so skip
+        // straight to the next provider. It is re-tried on the next request.
+        "fatal",
       );
     }
 

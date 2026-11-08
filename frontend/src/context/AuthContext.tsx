@@ -31,7 +31,7 @@ type AuthContextValue = {
   token: string | null;
   isAuthenticated: boolean;
   isBootstrapping: boolean;
-  login: (payload: LoginInput) => Promise<void>;
+  login: (payload: LoginInput) => Promise<AuthUser>;
   register: (payload: RegisterInput) => Promise<void>;
   logout: () => void;
   updateUser: (user: AuthUser) => void;
@@ -82,7 +82,7 @@ export const AuthProvider = ({
     void hydrateAuth();
   }, [token]);
 
-  const login = async (payload: LoginInput) => {
+  const login = async (payload: LoginInput): Promise<AuthUser> => {
     const loginResult = await loginRequest(payload);
 
     localStorage.setItem(
@@ -95,6 +95,7 @@ export const AuthProvider = ({
       loginResult.token
     );
     setUser(currentUser);
+    return currentUser;
   };
 
   const register = async (

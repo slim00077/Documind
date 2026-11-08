@@ -1,0 +1,20 @@
+# Non-secret configuration shared by the backend pods. Secrets live in `documind-secrets`
+# (see secret.example.yaml - never commit real values).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: documind-config
+  namespace: documind
+data:
+  NODE_ENV: production
+  PORT: "3000"
+  POSTGRES_DB: documind
+  JWT_EXPIRES_IN: 7d
+  EMBEDDING_PROVIDER: local
+  # No "local": Ollama is not deployed in the cluster. Deploy it, set OLLAMA_BASE_URL to its
+  # Service URL (e.g. http://ollama.documind.svc.cluster.local:11434) and append ",local".
+  LLM_PROVIDER_ORDER: gemini,openrouter,groq,openai
+  # Browser origin of the app (NodePort or ingress host). Same-origin through the frontend
+  # nginx proxy, so CORS is only needed if the API is called from another origin.
+  CORS_ORIGIN: http://documind.local:30080
+  FRONTEND_URL: http://documind.local:30080

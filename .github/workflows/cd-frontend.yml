@@ -1,0 +1,118 @@
+# CD pipeline 2 - deploy the DocuMind web client to Vercel, only after "CI - Frontend" passed on main.
+# Builds the CI-tested commit with the Vercel CLI (prebuilt deployment), refuses to ship a bundle
+# that targets localhost, deploys to production and smoke-tests the live site.
+name: CD - Frontend (Vercel)
+
+on:
+  workflow_run:
+    workflows: ["CI - Frontend"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: cd-frontend-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy to Vercel & verify
+    if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment:
+      name: production-frontend
+      url: ${{ vars.FRONTEND_URL }}
+    defaults:
+      run:
+        working-directory: frontend
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+      # Public URL of the Render API, baked into the bundle at build time (not a secret).
+      VITE_API_URL: ${{ vars.VITE_API_URL }}
+      FRONTEND_URL: ${{ vars.FRONTEND_URL }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Check deployment configuration
+        run: |
+          missing=""
+          for v in VERCEL_TOKEN VERCEL_ORG_ID VERCEL_PROJECT_ID VITE_API_URL FRONTEND_URL; do
+            [ -n "${!v}" ] || missing="$missing $v"
+          done
+          if [ -n "$missing" ]; then
+            echo "::error title=Vercel not configured::Missing:$missing (Settings > Secrets and variables > Actions)"; exit 1
+          fi
+          case "$VITE_API_URL" in
+            https://*) ;;
+            *) echo "::error::VITE_API_URL must be the https:// URL of the deployed API"; exit 1 ;;
+          esac
+          case "$VITE_API_URL" in *localhost*|*127.0.0.1*) echo "::error::VITE_API_URL points to localhost"; exit 1 ;; esac
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install Vercel CLI
+        run: npm install --global vercel@65 --no-audit --no-fund
+
+      - name: Pull Vercel project settings (production)
+        run: vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
+
+      - name: Build (vercel.json -> npm ci && npm run build -> dist)
+        run: vercel build --prod --token="$VERCEL_TOKEN"
+
+      - name: Guard - bundle must call the production API, never localhost
+        run: |
+          out=.vercel/output/static
+          if grep -rq "localhost:3000" "$out"; then
+            echo "::error::Build output still targets http://localhost:3000"; exit 1
+          fi
+          grep -rqF "${VITE_API_URL%/}" "$out/assets" || { echo "::error::VITE_API_URL not found in the bundle"; exit 1; }
+          echo "Bundle targets ${VITE_API_URL%/}"
+
+      - name: Deploy to production
+        id: deploy
+        run: |
+          url=$(vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN")
+          echo "Deployment: $url"
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+
+      - name: Smoke tests on the production domain
+        run: |
+          site="${FRONTEND_URL%/}"
+          fail=0
+          for path in / /login /documents; do
+            code=$(curl -s -o page.html -w "%{http_code}" "$site$path")
+            grep -q '<div id="root">' page.html && root=yes || root=no
+            echo "GET $path -> $code (SPA root: $root)"
+            [ "$code" = "200" ] && [ "$root" = "yes" ] || fail=1
+          done
+          # The deployed API must accept requests coming from this origin (CORS).
+          allowed=$(curl -s -o /dev/null -D - -X OPTIONS "${VITE_API_URL%/}/api/auth/login" \
+            -H "Origin: $site" -H "Access-Control-Request-Method: POST" \
+            | tr -d '\r' | awk -F': ' 'tolower($1)=="access-control-allow-origin"{print $2}')
+          echo "API CORS for $site -> ${allowed:-none}"
+          [ "$allowed" = "$site" ] || { echo "::error::Backend CORS_ORIGIN does not include $site"; fail=1; }
+          exit $fail
+
+      - name: Deployment summary
+        if: always()
+        run: |
+          {
+            echo "### Frontend deployment (Vercel)"
+            echo "- Commit: \`${{ github.event.workflow_run.head_sha || github.sha }}\`"
+            echo "- Deployment: ${{ steps.deploy.outputs.url }}"
+            echo "- Production: $FRONTEND_URL"
+            echo "- API: $VITE_API_URL"
+            echo "- Result: ${{ job.status }}"
+          } >> "$GITHUB_STEP_SUMMARY"

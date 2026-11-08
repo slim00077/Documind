@@ -1,0 +1,70 @@
+# DocuMind - full stack in containers (PostgreSQL 18 + pgvector, API, web client).
+#   docker compose up --build        ->  http://localhost:8080
+# Stop the local `npm run dev` backend first (port 3000). AI keys are read from backend/.env
+# if present; DATABASE_URL is always overridden to point at the `db` container.
+name: documind
+
+services:
+  db:
+    image: pgvector/pgvector:pg18
+    environment:
+      POSTGRES_USER: documind
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-documind}
+      POSTGRES_DB: documind
+    volumes:
+      # PostgreSQL 18 images keep their data under /var/lib/postgresql/18/... : mount the parent.
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U documind -d documind"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  # One-shot release step: pgvector extension + `prisma migrate deploy`.
+  migrate:
+    build: ./backend
+    image: documind-backend:local
+    command: ["npm", "run", "migrate:deploy"]
+    environment:
+      DATABASE_URL: postgresql://documind:${POSTGRES_PASSWORD:-documind}@db:5432/documind?schema=public
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+  backend:
+    image: documind-backend:local
+    env_file:
+      - path: ./backend/.env
+        required: false
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      DATABASE_URL: postgresql://documind:${POSTGRES_PASSWORD:-documind}@db:5432/documind?schema=public
+      JWT_SECRET: ${JWT_SECRET:-local-compose-only-secret-change-me}
+      # Ollama running on the host machine (Docker Desktop). Remove to disable.
+      OLLAMA_BASE_URL: http://host.docker.internal:11434
+    ports:
+      - "3000:3000"
+    volumes:
+      - uploads:/app/uploads
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_URL: "" # same origin: nginx proxies /api to the backend container
+    image: documind-frontend:local
+    environment:
+      API_UPSTREAM: http://backend:3000
+    ports:
+      - "8080:8080"
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:
+  uploads:

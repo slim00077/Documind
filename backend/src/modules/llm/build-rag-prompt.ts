@@ -14,7 +14,11 @@ export function buildRagPrompt(
           const label = chunk.documentName
             ? `${chunk.documentName} (chunk ${chunk.chunkIndex ?? index})`
             : `Context ${index + 1}`;
-          return `<document_context source="${label}">\n${chunk.content}\n</document_context>`;
+          // Neutralise anything in the document that imitates our delimiters,
+          // so uploaded text can't close the data block and inject instructions.
+          const safeLabel = label.replace(/["<>]/g, "'");
+          const safeContent = chunk.content.replace(/<\/?\s*document_context[^>]*>/gi, "[tag removed]");
+          return `<document_context id="${index + 1}" source="${safeLabel}">\n${safeContent}\n</document_context>`;
         })
         .join("\n\n")
     : NO_CONTEXT_NOTE;
@@ -45,10 +49,20 @@ export function buildRagPrompt(
     "  detail only when the question asks for it or the topic genuinely needs it.",
     "- Structure longer answers with short paragraphs or bullet points so they're",
     "  easy to scan.",
+    "- Cite the evidence: after each factual statement add the id of the supporting",
+    "  passage in square brackets, like [1] or [2][3], using the id attribute of the",
+    "  <document_context> tags. Only cite ids that exist and actually support the",
+    "  statement. Never invent quotations, page numbers or sources, and never give",
+    "  a page number (none are provided). Skip citations only when the task asks",
+    "  for a fixed output format such as JSON.",
+    "- When passages from different documents disagree, say so explicitly: state",
+    "  what each document says (name the documents) instead of picking one silently.",
     "- If the context only partially answers the question, answer the part you",
-    "  can and say plainly what's missing.",
+    "  can and say plainly what's missing (e.g. 'The documents don't mention X').",
     "- If the context has nothing relevant, say so directly and briefly - don't",
     "  guess or pad the response.",
+    "- Do not use outside knowledge for facts about the user's documents; if you",
+    "  add general background, label it clearly as not coming from the documents.",
     "- Excerpts starting with '[Visual content ...]' were extracted from images,",
     "  charts, diagrams or scanned pages ('Text in image' is OCR text, 'Description'",
     "  is an AI description of what the image shows). Treat them as part of the",

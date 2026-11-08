@@ -12,6 +12,6 @@ export class UpdateUserDto {
   email?: string;
 
   @IsOptional()
-  @IsIn(Object.values(Role))
+  @IsIn([Role.STUDENT, Role.TEACHER, Role.ADMIN])
   role?: Role;
 }

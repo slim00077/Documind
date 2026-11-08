@@ -20,6 +20,7 @@ import {
   DocumentRole,
   DocumentStatus,
 } from "../../../generated/prisma/client";
+import { anyAccessWhere, resolveDocumentRole, workspaceAccessWhere } from "../access/document-access";
 
 const documentSelect = {
   id: true,
@@ -138,7 +139,7 @@ export class DocumentsService {
     const documents = await this.prisma.document.findMany({
       where: {
         deletedAt: null,
-        OR: [{ userId }, { permissions: { some: { userId } } }],
+        ...workspaceAccessWhere(userId),
       },
       select: {
         ...documentSelect,
@@ -181,7 +182,7 @@ export class DocumentsService {
       where: {
         deletedAt: null,
         userId: { not: userId },
-        permissions: { some: { userId } },
+        ...workspaceAccessWhere(userId),
       },
       select: {
         ...documentSelect,
@@ -687,7 +688,7 @@ export class DocumentsService {
       where: {
         id,
         deletedAt: null,
-        OR: [{ userId }, { permissions: { some: { userId } } }],
+        ...anyAccessWhere(userId),
       },
       select: {
         ...documentSelect,
@@ -700,8 +701,7 @@ export class DocumentsService {
     }
 
     const { permissions, ...rest } = document;
-    const role: AccessRole =
-      rest.userId === userId ? "OWNER" : permissions[0]?.role ?? "VIEWER";
+    const role: AccessRole = resolveDocumentRole(userId, rest, permissions[0]?.role);
 
     return { document: rest, role };
   }

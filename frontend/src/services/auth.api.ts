@@ -7,7 +7,7 @@ export type AuthUser = {
   id: number;
   name: string;
   email: string;
-  role: "USER" | "ADMIN";
+  role: "USER" | "STUDENT" | "TEACHER" | "ADMIN";
   theme: Theme;
   aiResponseStyle: AiResponseStyle;
 };

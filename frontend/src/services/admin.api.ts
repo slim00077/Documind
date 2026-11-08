@@ -55,7 +55,7 @@ export const getAdminStatsRequest = (token: string): Promise<AdminStatsOverview>
 
 export type UsersQuery = {
   search?: string;
-  role?: "USER" | "ADMIN";
+  role?: "STUDENT" | "TEACHER" | "ADMIN";
   isActive?: boolean;
   page?: number;
   pageSize?: number;
@@ -84,7 +84,7 @@ export const getAdminUserRequest = (token: string, id: number): Promise<AdminUse
 export const updateAdminUserRequest = (
   token: string,
   id: number,
-  payload: { name?: string; email?: string; role?: "USER" | "ADMIN" }
+  payload: { name?: string; email?: string; role?: "STUDENT" | "TEACHER" | "ADMIN" }
 ): Promise<AdminUser> =>
   request<AdminUser>(`/users/${id}`, { method: "PATCH", token, body: payload });
 

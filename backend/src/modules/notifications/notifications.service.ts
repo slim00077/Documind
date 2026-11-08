@@ -8,7 +8,17 @@ export type NotificationType =
   | "PROCESSING_COMPLETED"
   | "PROCESSING_FAILED"
   | "DOCUMENT_TRASHED"
-  | "DOCUMENT_RESTORED";
+  | "DOCUMENT_RESTORED"
+  | "ORG_INVITATION"
+  | "ORG_MEMBERSHIP_CHANGED"
+  | "ORG_JOIN_REQUEST"
+  | "ORG_JOIN_REVIEWED"
+  | "GROUP_INVITATION"
+  | "GROUP_JOIN_REQUEST"
+  | "GROUP_REQUEST_REVIEWED"
+  | "GROUP_STUDENT_ADDED"
+  | "GROUP_STUDENT_REMOVED"
+  | "GROUP_TEACHER_ASSIGNED";
 
 export type CreateNotificationInput = {
   userId: number;
@@ -19,6 +29,8 @@ export type CreateNotificationInput = {
 };
 
 const LIST_LIMIT = 30;
+// An identical unread notification inside this window is not repeated.
+const DEDUPE_WINDOW_MS = 10 * 60 * 1000;
 
 @Injectable()
 export class NotificationsService {
@@ -32,6 +44,20 @@ export class NotificationsService {
    */
   async notify(input: CreateNotificationInput): Promise<void> {
     try {
+      const duplicate = await this.prisma.notification.findFirst({
+        where: {
+          userId: input.userId,
+          type: input.type,
+          title: input.title,
+          message: input.message,
+          documentId: input.documentId ?? null,
+          readAt: null,
+          createdAt: { gte: new Date(Date.now() - DEDUPE_WINDOW_MS) },
+        },
+        select: { id: true },
+      });
+      if (duplicate) return;
+
       await this.prisma.notification.create({
         data: {
           userId: input.userId,

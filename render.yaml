@@ -1,0 +1,53 @@
+# Render Blueprint - DocuMind API (NestJS). The frontend is deployed on Vercel.
+# Render -> New -> Blueprint -> select this repository. Values marked `sync: false` are asked
+# for in the dashboard and are never stored in Git.
+services:
+  - type: web
+    name: documind-api
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    # Paid instance required (persistent disk + pre-deploy command). "standard" = 2 GB RAM: the
+    # in-process embedding model peaks at ~0.7 GB while indexing, above Starter's 512 MB.
+    plan: standard
+    region: frankfurt
+    branch: main
+    # Deployments are triggered by the "CD - Backend (Render)" workflow, only after CI passes.
+    autoDeploy: false
+    healthCheckPath: /api/health
+    # Once per release, before the new version receives traffic: create pgvector if missing,
+    # then apply pending Prisma migrations (never resets or drops data).
+    preDeployCommand: npm run migrate:deploy
+    # Uploaded documents and organization logos (/app/uploads in the image). Without this
+    # disk, every redeploy or restart would silently delete all uploaded files.
+    disk:
+      name: documind-uploads
+      mountPath: /app/uploads
+      sizeGB: 5
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false # PostgreSQL with the pgvector extension available
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      - key: CORS_ORIGIN
+        sync: false # e.g. https://documind.vercel.app (comma-separated, no trailing slash)
+      - key: FRONTEND_URL
+        sync: false # same value, used to build invitation links
+      - key: EMBEDDING_PROVIDER
+        value: local
+      # No "local" (Ollama): nothing listens on localhost:11434 inside Render. To use Ollama
+      # in production, host it somewhere reachable, set OLLAMA_BASE_URL and append ",local".
+      - key: LLM_PROVIDER_ORDER
+        value: gemini,openrouter,groq,openai
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false

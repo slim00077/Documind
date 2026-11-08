@@ -1,0 +1,150 @@
+# CI pipeline 2 - DocuMind web client (React 19 + Vite + TypeScript).
+# lint gate + type-check/build -> SonarQube quality gate -> Docker image (smoke-tested, pushed on main)
+name: CI - Frontend
+
+on:
+  push:
+    branches: [main]
+    paths: ["frontend/**", ".github/workflows/ci-frontend.yml"]
+  pull_request:
+    paths: ["frontend/**", ".github/workflows/ci-frontend.yml"]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-frontend-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: "24"
+
+jobs:
+  lint:
+    name: ESLint quality gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      # Fails if the number of ESLint errors goes above the recorded budget (see scripts/lint-budget.mjs).
+      - name: ESLint (error budget gate)
+        run: npm run lint:ci
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: eslint-report
+          path: frontend/eslint-report.json
+          retention-days: 7
+
+  build:
+    name: Audit, type-check & production build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: frontend
+    env:
+      # Placeholder production API URL: proves the bundle uses VITE_API_URL and not localhost.
+      VITE_API_URL: https://api.ci-check.invalid
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - name: Dependency audit (production dependencies, fail on high/critical)
+        run: npm audit --omit=dev --audit-level=high
+      - name: Type-check and build (tsc -b && vite build)
+        run: npm run build
+      - name: Guard - production bundle must not call localhost
+        run: |
+          if grep -rq "localhost:3000" dist/assets; then
+            echo "::error::The production bundle contains http://localhost:3000"; exit 1
+          fi
+          grep -rq "api.ci-check.invalid" dist/assets || { echo "::error::VITE_API_URL was not baked into the bundle"; exit 1; }
+          echo "Bundle targets VITE_API_URL only."
+
+  sonarqube:
+    name: SonarQube analysis & quality gate
+    needs: [lint, build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+    steps:
+      - name: SonarQube not configured
+        if: env.SONAR_TOKEN == ''
+        run: echo "::warning title=SonarQube skipped::Add the SONAR_TOKEN secret (and SONAR_HOST_URL / SONAR_ORGANIZATION variables) to enable the quality gate."
+      - uses: actions/checkout@v7
+        if: env.SONAR_TOKEN != ''
+        with:
+          fetch-depth: 0
+      - uses: actions/download-artifact@v8
+        if: env.SONAR_TOKEN != ''
+        with:
+          name: eslint-report
+          path: frontend
+      - name: SonarQube scan (waits for the quality gate, fails the job if it is red)
+        if: env.SONAR_TOKEN != ''
+        uses: SonarSource/sonarqube-scan-action@v8
+        env:
+          SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL || 'https://sonarcloud.io' }}
+        with:
+          projectBaseDir: frontend
+          args: ${{ vars.SONAR_ORGANIZATION != '' && format('-Dsonar.organization={0}', vars.SONAR_ORGANIZATION) || '' }}
+
+  docker:
+    name: Docker image (build, smoke test, publish)
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: write
+    env:
+      IMAGE: ghcr.io/${{ github.repository_owner }}/documind-frontend
+    steps:
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@v4
+      # Same-origin image (VITE_API_URL empty): used by docker compose and Kubernetes,
+      # where nginx proxies /api to the backend. Vercel builds its own bundle.
+      - name: Build image
+        uses: docker/build-push-action@v7
+        with:
+          context: frontend
+          load: true
+          tags: documind-frontend:ci
+          build-args: VITE_API_URL=
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,scope=frontend,mode=max
+      - name: Smoke test - nginx serves the SPA and the health endpoint
+        run: |
+          docker run -d --name web -p 8080:8080 documind-frontend:ci
+          for i in $(seq 1 15); do curl -fsS http://localhost:8080/healthz && break; sleep 1; done
+          curl -fsS http://localhost:8080/healthz
+          curl -fsS http://localhost:8080/ | grep -q '<div id="root">'
+          # Client-side route: must fall back to index.html (React Router), not 404.
+          curl -fsS http://localhost:8080/documents | grep -q '<div id="root">'
+          echo "SPA + /healthz OK"
+          docker logs web
+      - name: Publish to GitHub Container Registry (main only)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          docker tag documind-frontend:ci "$IMAGE:${{ github.sha }}"
+          docker tag documind-frontend:ci "$IMAGE:latest"
+          docker push "$IMAGE:${{ github.sha }}"
+          docker push "$IMAGE:latest"
+          echo "Published $IMAGE:${{ github.sha }}" >> "$GITHUB_STEP_SUMMARY"

@@ -29,7 +29,7 @@ export class OpenAiLlmProvider implements LLMProvider {
   private readonly logger = new Logger(OpenAiLlmProvider.name);
 
   constructor(private readonly config: ConfigService) {
-    this.modelName = this.config.get<string>("LLM_MODEL", DEFAULT_MODEL);
+    this.modelName = this.config.get<string>("OPENAI_MODEL", DEFAULT_MODEL);
     this.apiKey = this.config.get<string>("OPENAI_API_KEY");
   }
 
