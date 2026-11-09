@@ -35,13 +35,13 @@ COPY --from=build --chown=node:node /app/node_modules ./node_modules
 COPY --from=build --chown=node:node /app/dist ./dist
 COPY --from=build --chown=node:node /app/prisma ./prisma
 COPY --from=build --chown=node:node /app/scripts/ensure-pgvector.js ./scripts/ensure-pgvector.js
-# Uploaded documents and organization logos. Mount persistent storage on /app/uploads
-# (docker volume / Render disk / Kubernetes PVC), otherwise files are lost on restart.
+# Local-driver upload folder (docker compose volume / Kubernetes PVC). On Render Free
+# STORAGE_DRIVER=s3 is used and files live in the private Neon bucket, never on this filesystem.
 RUN mkdir -p /app/uploads/documents /app/uploads/org-logos && chown -R node:node /app/uploads
 USER node
 EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
   CMD node -e "fetch('http://127.0.0.1:' + (process.env.PORT || 3000) + '/api/health').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
-# Migrations are NOT run here: they run once per release (Render pre-deploy command,
-# Kubernetes init container, compose `migrate` service) via `npm run migrate:deploy`.
+# Migrations are NOT run here: they run once per release via `npm run migrate:deploy`
+# (GitHub Actions "CD - Backend" job for Render Free, Kubernetes init container, compose `migrate`).
 CMD ["node", "dist/src/main.js"]

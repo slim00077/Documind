@@ -160,7 +160,8 @@ jobs:
       - name: Smoke test - container starts and /api/health is green
         run: |
           docker run -d --name api --network host \
-            -e DATABASE_URL="$DB_URL" -e JWT_SECRET=ci-only -e PORT=3000 -e LLM_PROVIDER_ORDER=none \n            -e ALLOW_LOCAL_UPLOADS=true \
+            -e DATABASE_URL="$DB_URL" -e JWT_SECRET=ci-only -e PORT=3000 -e LLM_PROVIDER_ORDER=none \
+            -e ALLOW_LOCAL_UPLOADS=true \
             documind-backend:ci
           for i in $(seq 1 45); do
             if curl -fsS http://localhost:3000/api/health; then echo; exit 0; fi
