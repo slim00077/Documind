@@ -11,14 +11,35 @@ Status date: 2026-11-08. Every status below is one of:
 
 > Starting point (audit): the repository contained **no** CI/CD workflow, Dockerfile, compose file,
 > Kubernetes manifest, SonarQube, Vercel or Render configuration, and no health endpoint. Everything
-> below was added in this delivery. No pipeline has run on GitHub yet and nothing has been deployed.
+> below was added in this delivery.
+
+### Production status — 2026-11-09 (supersedes the "NOT RUN / NOT DEPLOYED" labels below)
+
+| Item | Result |
+|---|---|
+| Backend | **LIVE** on Render Free: https://documind-api-9jm3.onrender.com (`/api/health`: database up, pgvector 0.8.6, storage s3) |
+| Frontend | **LIVE** on Vercel Hobby: https://documind-platform.vercel.app (project `documind-platform`, Root Directory empty, no Git link: only CD deploys) |
+| Database | Neon Free `documind-prod` (aws-eu-central-1, PG 18): 17/17 migrations, local data restored and verified table by table (row checksums) |
+| Files | Neon Object Storage, private bucket `documind-files`: 18 files copied and verified by SHA-256. Render uses credential `documind-render-rw` (storage:read + storage:write). A write-only credential cannot read files back (GetObject/HeadObject/ListObjects return 403) |
+| CI - Backend / CI - Frontend | green on GitHub (Docker images built and smoke-tested in CI) |
+| CD - Backend / CD - Frontend | green on GitHub (migrations, deploy hook, new-commit check, readiness, security and CORS smoke tests) |
+| SonarQube | **not configured**: the jobs pass only by skipping with a warning (no `SONAR_TOKEN`) |
+| Kubernetes | not deployed (unchanged) |
+
+Failures fixed on the way: Render boot crash `DATABASE_URL is not defined` (Blueprint `sync: false` values never filled; the
+Docker build itself succeeded), a literal `\n` in the CI Docker smoke-test command (`docker run` exit 125), and the CD
+`migrate` job running a step before `actions/checkout` while its working directory was `backend/`.
+
+> The GitHub repository is **public**. Commit `55dbe1b` contains `backend/backups/documind_source_backup_20260903.sql`
+> (user emails and bcrypt hashes) and 14 user-uploaded files under `backend/uploads/`. Make the repository private (Render is connected through the GitHub App) and have the
+> affected users change their passwords; removing the file from history would require a force-push.
 
 ---
 
 ## A. DevOps architecture
 
 ```
- developer ──push──▶ GitHub (private repo slim00077/DocuMind)
+ developer ──push──▶ GitHub (repo slim00077/DocuMind)
                          │
         ┌────────────────┴──────────────────┐
         ▼                                   ▼
@@ -293,7 +314,7 @@ Modified: `backend/package.json` (scripts, `allowScripts`), `backend/package-loc
    - 14 user files in `backend/uploads/`
    - `backend/dist/`, `frontend/.env` and `.claude/settings.local.json`
 
-   Untrack them with `git rm -r --cached backend/backups backend/uploads backend/dist frontend/.env` (local files are kept). They remain in history, and the repo is private.
+   They were untracked in commit 6a59f3a (local files kept) but remain in history, and the repo is currently **public** (see the status block at the top).
 
 
 ---
