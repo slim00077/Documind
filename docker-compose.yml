@@ -40,6 +40,8 @@ services:
     environment:
       NODE_ENV: production
       PORT: "3000"
+      # Files live on the named volume below (production refuses local storage otherwise).
+      ALLOW_LOCAL_UPLOADS: "true"
       DATABASE_URL: postgresql://documind:${POSTGRES_PASSWORD:-documind}@db:5432/documind?schema=public
       JWT_SECRET: ${JWT_SECRET:-local-compose-only-secret-change-me}
       # Ollama running on the host machine (Docker Desktop). Remove to disable.

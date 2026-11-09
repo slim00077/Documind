@@ -7,6 +7,7 @@ import {
   Controller,
   Delete,
   Get,
+  NotFoundException,
   Param,
   ParseIntPipe,
   Patch,
@@ -30,6 +31,8 @@ import { extractIp } from "../audit-log/audit-log.service";
 import { OrganizationsService } from "./organizations.service";
 import { InvitationsService } from "./invitations.service";
 import { GroupsService } from "./groups.service";
+import { FileStorageService, StoredFileNotFoundError } from "../storage/file-storage.service";
+import { UPLOAD_STAGING_ROOT } from "../storage/storage.config";
 import {
   AddMemberDto,
   AddOrgAdminDto,
@@ -48,7 +51,7 @@ import {
   UpdateOrganizationDto,
 } from "./organizations.dto";
 
-const LOGO_DIR = join(process.cwd(), "uploads", "org-logos");
+const LOGO_DIR = join(UPLOAD_STAGING_ROOT, "org-logos");
 if (!existsSync(LOGO_DIR)) mkdirSync(LOGO_DIR, { recursive: true });
 const LOGO_TYPES: Record<string, string[]> = { "image/png": [".png"], "image/jpeg": [".jpg", ".jpeg"], "image/webp": [".webp"] };
 
@@ -75,6 +78,7 @@ export class OrganizationsController {
     private readonly orgs: OrganizationsService,
     private readonly invitations: InvitationsService,
     private readonly groups: GroupsService,
+    private readonly storage: FileStorageService,
   ) {}
 
   // --- the caller's own context (declared before :orgId routes) -----------
@@ -97,20 +101,34 @@ export class OrganizationsController {
   @UseInterceptors(logoInterceptor)
   async uploadLogo(@CurrentUser() u: AuthTokenPayload, @Req() r: Request, @Param("orgId", ParseIntPipe) orgId: number, @UploadedFile() file?: Express.Multer.File) {
     if (!file) throw new BadRequestException("A logo image is required");
+    const key = `org-logos/${file.filename}`;
     try {
+      // The permission check (ORG ADMIN) runs inside setLogo; the file is only kept if it passes.
+      await this.orgs.requireAdmin(u.userId, orgId);
+      await this.storage.put(key, file.path, file.mimetype);
       const { previous } = await this.orgs.setLogo(actorOf(u, r), orgId, file.filename);
-      if (previous) unlink(join(LOGO_DIR, previous), () => undefined);
+      if (previous) await this.storage.remove(`org-logos/${previous}`);
       return { hasLogo: true };
     } catch (error) {
       unlink(file.path, () => undefined);
+      await this.storage.remove(key);
       throw error;
     }
   }
 
   @Get(":orgId/logo")
   async logo(@CurrentUser() u: AuthTokenPayload, @Param("orgId", ParseIntPipe) orgId: number, @Res() res: Response) {
-    const file = await this.orgs.getLogoPath(u.userId, orgId);
-    res.sendFile(join(LOGO_DIR, file.replace(/[^\w.-]/g, "")));
+    const file = (await this.orgs.getLogoPath(u.userId, orgId)).replace(/[^\w.-]/g, "");
+    let buffer: Buffer;
+    try {
+      buffer = await this.storage.read(`org-logos/${file}`);
+    } catch (error) {
+      if (error instanceof StoredFileNotFoundError) throw new NotFoundException("No logo");
+      throw error;
+    }
+    res.type(extname(file));
+    res.setHeader("Cache-Control", "private, max-age=300");
+    res.send(buffer);
   }
 
   // --- members ---------------------------------------------------------------

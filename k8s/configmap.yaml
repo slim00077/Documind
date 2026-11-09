@@ -8,6 +8,9 @@ metadata:
 data:
   NODE_ENV: production
   PORT: "3000"
+  # Uploads are on the backend PersistentVolumeClaim (/app/uploads); production refuses local
+  # storage unless this is set explicitly.
+  ALLOW_LOCAL_UPLOADS: "true"
   POSTGRES_DB: documind
   JWT_EXPIRES_IN: 7d
   EMBEDDING_PROVIDER: local

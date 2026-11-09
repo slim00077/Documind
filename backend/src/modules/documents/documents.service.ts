@@ -2,15 +2,17 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
+  ServiceUnavailableException,
 } from "@nestjs/common";
-import { copyFile, unlink } from "node:fs/promises";
+import { unlink } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
-import { extname, join } from "node:path";
+import { extname } from "node:path";
 import { PrismaService } from "../../prisma/prisma.service";
 import { CreateDocumentDto } from "./dto/create-document.dto";
 import { UpdateDocumentDto } from "./dto/update-document.dto";
-import { DOCUMENTS_UPLOAD_DIR } from "./documents-upload.config";
+import { FileStorageService, StoredFileNotFoundError } from "../storage/file-storage.service";
 import { DocumentExtractionService } from "./document-extraction.service";
 import { DocumentInsightsService } from "./document-insights.service";
 import { AuditLogService } from "../audit-log/audit-log.service";
@@ -77,11 +79,14 @@ type AccessRole = "OWNER" | DocumentRole;
 
 @Injectable()
 export class DocumentsService {
+  private readonly logger = new Logger(DocumentsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly extractionService: DocumentExtractionService,
     private readonly auditLog: AuditLogService,
     private readonly insightsService: DocumentInsightsService,
+    private readonly storage: FileStorageService,
   ) {}
 
   async create(
@@ -94,7 +99,12 @@ export class DocumentsService {
       await this.assertCategoryExists(dto.categoryId);
     }
 
-    const document = await this.prisma.document.create({
+    if (file) {
+      await this.storeUpload(file);
+    }
+
+    const document = await this.prisma.document
+      .create({
       data: {
         name: dto.name.trim(),
         description: dto.description?.trim(),
@@ -110,7 +120,11 @@ export class DocumentsService {
           : {}),
       },
       select: documentSelect,
-    });
+      })
+      .catch(async (error) => {
+        if (file) await this.storage.remove(`documents/${file.filename}`);
+        throw error;
+      });
 
     await this.auditLog.log({
       actorId: userId,
@@ -364,11 +378,8 @@ export class DocumentsService {
     await Promise.all(
       files
         .filter((file): file is string => Boolean(file))
-        .map((file) =>
-          unlink(join(DOCUMENTS_UPLOAD_DIR, file)).catch(() => {
-            // The file may already be gone; the record deletion should not fail because of this.
-          }),
-        ),
+        // remove() is best effort: a missing file must not fail the record deletion.
+        .map((file) => this.storage.remove(`documents/${file}`)),
     );
 
     return { id, message: "Document permanently deleted" };
@@ -431,9 +442,16 @@ export class DocumentsService {
 
     try {
       await this.assertCanEdit(userId, id);
-      await this.archiveCurrentFile(id, userId);
+      await this.storeUpload(file);
     } catch (error) {
       await unlink(file.path).catch(() => undefined);
+      throw error;
+    }
+
+    try {
+      await this.archiveCurrentFile(id, userId);
+    } catch (error) {
+      await this.storage.remove(`documents/${file.filename}`);
       throw error;
     }
 
@@ -475,9 +493,9 @@ export class DocumentsService {
     // can never break the other.
     const restoredFile = `${randomUUID()}${extname(version.filePath)}`;
     try {
-      await copyFile(
-        join(DOCUMENTS_UPLOAD_DIR, version.filePath),
-        join(DOCUMENTS_UPLOAD_DIR, restoredFile),
+      await this.storage.copy(
+        `documents/${version.filePath}`,
+        `documents/${restoredFile}`,
       );
     } catch {
       throw new BadRequestException(
@@ -521,7 +539,7 @@ export class DocumentsService {
     }
 
     return {
-      absolutePath: join(DOCUMENTS_UPLOAD_DIR, document.filePath),
+      buffer: await this.readStored(document.filePath),
       mimeType: document.mimeType,
     };
   }
@@ -539,7 +557,7 @@ export class DocumentsService {
     }
 
     return {
-      absolutePath: join(DOCUMENTS_UPLOAD_DIR, version.filePath),
+      buffer: await this.readStored(version.filePath),
       downloadName: version.originalName ?? version.filePath,
     };
   }
@@ -587,6 +605,32 @@ export class DocumentsService {
     }
 
     return loaded;
+  }
+
+  /** Moves a freshly uploaded file into durable storage (bucket in production). */
+  private async storeUpload(file: Express.Multer.File) {
+    try {
+      await this.storage.put(`documents/${file.filename}`, file.path, file.mimetype);
+    } catch (error) {
+      await unlink(file.path).catch(() => undefined);
+      this.logger.error(
+        `Could not store uploaded file: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      throw new ServiceUnavailableException(
+        "File storage is temporarily unavailable. Please try again.",
+      );
+    }
+  }
+
+  private async readStored(filePath: string): Promise<Buffer> {
+    try {
+      return await this.storage.read(`documents/${filePath}`);
+    } catch (error) {
+      if (error instanceof StoredFileNotFoundError) {
+        throw new NotFoundException("The stored file is no longer available.");
+      }
+      throw error;
+    }
   }
 
   /** Stores the document's current file as the next version, if it has one. */

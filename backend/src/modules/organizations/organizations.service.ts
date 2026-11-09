@@ -100,6 +100,11 @@ export class OrganizationsService {
     return org;
   }
 
+  /** Throws unless the caller is an ACTIVE ORG ADMIN; used before a logo file is stored. */
+  async requireAdmin(userId: number, organizationId: number): Promise<void> {
+    await this.access.requireOrg(userId, organizationId, "ADMIN");
+  }
+
   async setLogo(actor: Actor, organizationId: number, filePath: string) {
     await this.access.requireOrg(actor.userId, organizationId, "ADMIN");
     const current = await this.prisma.organization.findUniqueOrThrow({ where: { id: organizationId }, select: { logo: true } });

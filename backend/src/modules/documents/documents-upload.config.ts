@@ -1,15 +1,14 @@
 import { randomUUID } from "node:crypto";
 import { existsSync, mkdirSync } from "node:fs";
 import { extname, join } from "node:path";
+import { UPLOAD_STAGING_ROOT } from "../storage/storage.config";
 import { BadRequestException } from "@nestjs/common";
 import type { MulterOptions } from "@nestjs/platform-express/multer/interfaces/multer-options.interface";
 import { diskStorage } from "multer";
 
-export const DOCUMENTS_UPLOAD_DIR = join(
-  process.cwd(),
-  "uploads",
-  "documents",
-);
+// Staging folder: with STORAGE_DRIVER=s3 this is the OS temp dir and files are moved to the bucket
+// right after upload; with the local driver it is the permanent uploads/documents folder.
+export const DOCUMENTS_UPLOAD_DIR = join(UPLOAD_STAGING_ROOT, "documents");
 
 if (!existsSync(DOCUMENTS_UPLOAD_DIR)) {
   mkdirSync(DOCUMENTS_UPLOAD_DIR, { recursive: true });

@@ -1,5 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import type { EmbeddingProvider } from "./embedding-provider";
+import { createLimiter } from "../../../common/limiter";
 
 type FeatureExtractionPipeline = (
   texts: string[],
@@ -8,9 +9,21 @@ type FeatureExtractionPipeline = (
 
 const MODEL_NAME = "Xenova/all-MiniLM-L6-v2";
 const DIMENSIONS = 384;
-// ONNX memory grows with the batch: 128 chunks in one call peaked at ~2 GB RSS, batches of 16
-// at ~0.7 GB (and faster). Keeps large documents within a container memory limit.
-const BATCH_SIZE = 16;
+// ONNX memory grows with the batch (128 chunks in one call peaked at ~2 GB RSS).
+// Low-memory mode (default in production, or EMBEDDING_LOW_MEMORY=true) targets a 512 MB container:
+// no CPU memory arena, one thread, small batches. Measured on 1,000-character chunks: model peak
+// ~205-222 MB against 441 MB with default settings (batches of 16), at roughly 3x the time per chunk.
+const LOW_MEMORY = (process.env.EMBEDDING_LOW_MEMORY ?? String(process.env.NODE_ENV === "production")) === "true";
+const BATCH_SIZE = LOW_MEMORY ? 4 : 16;
+const LOW_MEMORY_SESSION_OPTIONS = {
+  enableCpuMemArena: false,
+  enableMemPattern: false,
+  graphOptimizationLevel: "basic" as const,
+  intraOpNumThreads: 1,
+  interOpNumThreads: 1,
+};
+// Embedding jobs never overlap, so concurrent uploads cannot add their peaks together.
+const embedOneAtATime = createLimiter(1);
 
 /**
  * Runs a small sentence-embedding model fully locally via ONNX (no API key,
@@ -25,7 +38,11 @@ export class LocalEmbeddingProvider implements EmbeddingProvider {
 
   private pipelinePromise: Promise<FeatureExtractionPipeline> | null = null;
 
-  async embed(texts: string[]): Promise<number[][]> {
+  embed(texts: string[]): Promise<number[][]> {
+    return embedOneAtATime(() => this.embedBatches(texts));
+  }
+
+  private async embedBatches(texts: string[]): Promise<number[][]> {
     if (texts.length === 0) {
       return [];
     }
@@ -57,6 +74,7 @@ export class LocalEmbeddingProvider implements EmbeddingProvider {
           pipeline(
             "feature-extraction",
             MODEL_NAME,
+            LOW_MEMORY ? { session_options: LOW_MEMORY_SESSION_OPTIONS } : {},
           ) as unknown as Promise<FeatureExtractionPipeline>,
       );
     }

@@ -1,7 +1,13 @@
-# CD pipeline 1 - deploy the DocuMind API to Render, only after "CI - Backend" passed on main.
-# Render builds backend/Dockerfile (render.yaml), runs `npm run migrate:deploy` as pre-deploy
-# command, then switches traffic once /api/health is green. This workflow triggers the deploy
-# of the exact CI-tested commit, waits for the result and smoke-tests production.
+# CD pipeline 1 - deploy the DocuMind API to Render Free, only after "CI - Backend" passed on main.
+#
+#   1. migrate  Apply pgvector + Prisma migrations to the Neon database (non-destructive).
+#               Render Free has no pre-deploy command, so migrations run here, BEFORE the new code.
+#   2. deploy   Trigger the Render deploy hook for the CI-tested commit, wait through build and
+#               cold start for /api/health/live, then verify readiness (database, pgvector, bucket)
+#               and run security smoke tests.
+#
+# Migrations are additive (`prisma migrate deploy` only applies pending migration files); this
+# workflow never runs `migrate reset`, `db push` or any DROP.
 name: CD - Backend (Render)
 
 on:
@@ -13,17 +19,74 @@ on:
 
 concurrency:
   group: cd-backend-production
-  cancel-in-progress: false # never interrupt a deployment in progress
+  cancel-in-progress: false # never interrupt a migration or a deployment in progress
 
 permissions:
   contents: read
 
+env:
+  ONNXRUNTIME_NODE_INSTALL: skip # the migration job does not need the CUDA download
+
 jobs:
-  deploy:
-    name: Deploy to Render & verify
+  migrate:
+    name: Database migrations (Neon)
     if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 15
+    environment:
+      name: production-backend
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+    steps:
+      - name: Check the database URL (never printed)
+        env:
+          URL_TO_CHECK: ${{ secrets.DATABASE_URL }}
+        run: |
+          if [ -z "$URL_TO_CHECK" ]; then
+            echo "::error title=Missing GitHub SECRET::Add DATABASE_URL under Settings > Secrets and variables > Actions > Secrets (Neon direct connection string)"; exit 1
+          fi
+          node -e '
+            let u;
+            try { u = new URL(process.env.URL_TO_CHECK); } catch { console.log("::error::DATABASE_URL is not a valid URL"); process.exit(1); }
+            const fail = (m) => { console.log("::error title=Unsafe DATABASE_URL::" + m); process.exit(1); };
+            if (!/^postgres(ql)?:$/.test(u.protocol)) fail("must be a postgresql:// URL");
+            if (/^(localhost|127\.|0\.0\.0\.0|\[::1\])/.test(u.hostname)) fail("must not point to localhost");
+            const db = decodeURIComponent(u.pathname.slice(1));
+            if (!db) fail("the URL has no database name");
+            if (/_test$/.test(db)) fail("refusing to migrate a *_test database from the deployment pipeline");
+            if (/-pooler\./.test(u.hostname)) fail("use Neon DIRECT connection string (host without -pooler): Prisma migrations need a session-level connection");
+            if (u.searchParams.get("sslmode") !== "require") fail("add ?sslmode=require to the Neon connection string");
+            console.log("Database URL looks valid: database name length " + db.length + ", SSL required, direct connection.");
+          '
+
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      # scripts/ensure-pgvector.js (CREATE EXTENSION IF NOT EXISTS vector) + prisma migrate deploy.
+      - name: Apply pgvector setup and pending migrations
+        run: npm run migrate:deploy
+
+      - name: Verify migration status (read-only)
+        run: npx prisma migrate status
+
+  deploy:
+    name: Deploy to Render Free & verify
+    needs: migrate
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
     environment:
       name: production-backend
       url: ${{ vars.BACKEND_URL }}
@@ -37,77 +100,106 @@ jobs:
     steps:
       - name: Check deployment configuration
         run: |
-          missing=""
-          [ -n "$RENDER_DEPLOY_HOOK_URL" ] || missing="$missing secret:RENDER_DEPLOY_HOOK_URL"
-          [ -n "$BACKEND_URL" ] || missing="$missing variable:BACKEND_URL"
-          if [ -n "$missing" ]; then
-            echo "::error title=Render not configured::Missing$missing (Settings > Secrets and variables > Actions)"
-            exit 1
-          fi
+          [ -n "$RENDER_DEPLOY_HOOK_URL" ] || echo "::error title=Missing GitHub SECRET::RENDER_DEPLOY_HOOK_URL (Settings > Secrets and variables > Actions > Secrets)"
+          [ -n "$BACKEND_URL" ] || echo "::error title=Missing GitHub VARIABLE::BACKEND_URL (Settings > Secrets and variables > Actions > Variables)"
+          if [ -z "$RENDER_DEPLOY_HOOK_URL" ] || [ -z "$BACKEND_URL" ]; then exit 1; fi
+          case "$BACKEND_URL" in
+            https://*) ;;
+            *) echo "::error::BACKEND_URL must be the https:// URL of the Render service"; exit 1 ;;
+          esac
+          case "$BACKEND_URL" in *localhost*|*127.0.0.1*) echo "::error::BACKEND_URL points to localhost"; exit 1 ;; esac
+          case "$RENDER_DEPLOY_HOOK_URL" in
+            https://api.render.com/deploy/*) ;;
+            *) echo "::error::RENDER_DEPLOY_HOOK_URL must be a https://api.render.com/deploy/... Deploy Hook"; exit 1 ;;
+          esac
 
       - name: Trigger Render deploy of commit ${{ env.COMMIT }}
         id: trigger
         run: |
           response=$(curl -fsS -X POST "${RENDER_DEPLOY_HOOK_URL}&ref=${COMMIT}")
-          deploy_id=$(echo "$response" | jq -r '.deploy.id // empty')
+          deploy_id=$(echo "$response" | jq -r '.deploy.id // empty' 2>/dev/null || true)
           echo "Render deploy id: ${deploy_id:-unknown}"
           echo "deploy_id=$deploy_id" >> "$GITHUB_OUTPUT"
 
-      - name: Wait for the Render deploy to finish (build, pre-deploy migrations, health check)
+      # Optional: with RENDER_API_KEY + RENDER_SERVICE_ID the build result is read from Render directly.
+      - name: Wait for the Render build (optional API polling)
         if: env.RENDER_API_KEY != '' && env.RENDER_SERVICE_ID != '' && steps.trigger.outputs.deploy_id != ''
         env:
           DEPLOY_ID: ${{ steps.trigger.outputs.deploy_id }}
         run: |
-          for i in $(seq 1 90); do
+          for i in $(seq 1 120); do
             status=$(curl -fsS -H "Authorization: Bearer $RENDER_API_KEY" -H "Accept: application/json" \
               "https://api.render.com/v1/services/$RENDER_SERVICE_ID/deploys/$DEPLOY_ID" | jq -r '.status')
             echo "[$i] Render deploy status: $status"
             case "$status" in
               live) exit 0 ;;
-              build_failed|update_failed|pre_deploy_failed|canceled|deactivated)
+              build_failed|update_failed|canceled|deactivated)
                 echo "::error title=Render deploy failed::status=$status (see the Render dashboard logs)"; exit 1 ;;
             esac
-            sleep 20
+            sleep 15
           done
-          echo "::error::Timed out waiting for the Render deploy"; exit 1
+          echo "::error::Timed out waiting for the Render build"; exit 1
 
-      - name: Production health check (database + pgvector)
+      # Free instances build slowly and start cold (about a minute): allow up to 25 minutes.
+      - name: Wait for the new release - /api/health/live (database-independent)
         run: |
           short=${COMMIT:0:7}
-          for i in $(seq 1 60); do
-            body=$(curl -s --max-time 10 "$BACKEND_URL/api/health" || true)
+          for i in $(seq 1 150); do
+            body=$(curl -s --max-time 30 "$BACKEND_URL/api/health/live" || true)
             status=$(echo "$body" | jq -r '.status // empty' 2>/dev/null || true)
             version=$(echo "$body" | jq -r '.version // empty' 2>/dev/null || true)
-            echo "[$i] status=${status:-unreachable} version=${version:-?}"
+            echo "[$i] status=${status:-unreachable (cold start or deploying)} version=${version:-?}"
             if [ "$status" = "ok" ]; then
-              # version = RENDER_GIT_COMMIT (first 7 chars): proves the NEW release is serving.
+              # version = RENDER_GIT_COMMIT (7 chars): proves the NEW release is serving traffic.
               if [ "$version" = "$short" ]; then echo "$body" | jq .; exit 0; fi
               if ! echo "$version" | grep -Eq '^[0-9a-f]{7}$'; then
-                echo "::warning::Health is green but the running commit cannot be verified (version=$version)"
+                echo "::warning::Liveness is green but the running commit cannot be verified (version=$version)"
                 echo "$body" | jq .; exit 0
               fi
-              # Otherwise an older commit is still live: keep waiting.
+              # An older commit is still live: keep waiting for the switch-over.
             fi
             sleep 10
           done
-          echo "::error title=Health check failed::$BACKEND_URL/api/health is not green on commit $short"
+          echo "::error title=Liveness failed::$BACKEND_URL/api/health/live did not report commit $short"
           exit 1
 
-      - name: Smoke tests (no AI provider call, no database write)
+      - name: Readiness - database, pgvector and private bucket
+        run: |
+          for i in $(seq 1 18); do
+            code=$(curl -s -o ready.json -w "%{http_code}" --max-time 60 "$BACKEND_URL/api/health" || true)
+            echo "[$i] /api/health -> $code $(jq -c '{status,database,pgvector,storage}' ready.json 2>/dev/null || true)"
+            if [ "$code" = "200" ] && [ "$(jq -r '.status' ready.json)" = "ok" ]; then
+              [ "$(jq -r '.storage' ready.json)" = "s3" ] || { echo "::error::Production must use the S3 bucket for files (storage=$(jq -r '.storage' ready.json))"; exit 1; }
+              exit 0
+            fi
+            sleep 10 # Neon may still be waking from scale-to-zero
+          done
+          echo "::error title=Readiness failed::database, pgvector or the file bucket is not healthy"
+          exit 1
+
+      - name: Security smoke tests (no AI provider call, no database write)
         run: |
           fail=0
           code=$(curl -s -o /dev/null -w "%{http_code}" "$BACKEND_URL/api/documents")
           echo "GET /api/documents without JWT -> $code (expected 401)"; [ "$code" = "401" ] || fail=1
+          code=$(curl -s -o /dev/null -w "%{http_code}" -H "Authorization: Bearer forged.token.value" "$BACKEND_URL/api/documents")
+          echo "forged JWT -> $code (expected 401)"; [ "$code" = "401" ] || fail=1
           code=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$BACKEND_URL/api/auth/login" \
             -H "Content-Type: application/json" \
             -d '{"email":"cd-smoke-test@invalid.example","password":"NotARealPassword123!"}')
           echo "POST /api/auth/login unknown user -> $code (expected 401)"; [ "$code" = "401" ] || fail=1
+          code=$(curl -s -o /dev/null -w "%{http_code}" "$BACKEND_URL/api/organizations/1/logo")
+          echo "GET organization logo without JWT -> $code (expected 401)"; [ "$code" = "401" ] || fail=1
           if [ -n "$FRONTEND_URL" ]; then
             origin="${FRONTEND_URL%/}"
             allowed=$(curl -s -o /dev/null -D - -X OPTIONS "$BACKEND_URL/api/auth/login" \
               -H "Origin: $origin" -H "Access-Control-Request-Method: POST" \
               | tr -d '\r' | awk -F': ' 'tolower($1)=="access-control-allow-origin"{print $2}')
             echo "CORS for $origin -> ${allowed:-none}"; [ "$allowed" = "$origin" ] || fail=1
+            evil=$(curl -s -o /dev/null -D - -X OPTIONS "$BACKEND_URL/api/auth/login" \
+              -H "Origin: https://evil.example" -H "Access-Control-Request-Method: POST" \
+              | tr -d '\r' | awk -F': ' 'tolower($1)=="access-control-allow-origin"{print $2}')
+            echo "CORS for a foreign origin -> ${evil:-none} (expected none)"; [ -z "$evil" ] || fail=1
           fi
           exit $fail
 
@@ -115,9 +207,9 @@ jobs:
         if: always()
         run: |
           {
-            echo "### Backend deployment (Render)"
+            echo "### Backend deployment (Render Free + Neon)"
             echo "- Commit: \`${COMMIT}\`"
             echo "- URL: $BACKEND_URL"
-            echo "- Health: $BACKEND_URL/api/health"
+            echo "- Liveness: $BACKEND_URL/api/health/live"
             echo "- Result: ${{ job.status }}"
           } >> "$GITHUB_STEP_SUMMARY"

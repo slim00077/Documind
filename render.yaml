@@ -1,53 +1,79 @@
-# Render Blueprint - DocuMind API (NestJS). The frontend is deployed on Vercel.
-# Render -> New -> Blueprint -> select this repository. Values marked `sync: false` are asked
-# for in the dashboard and are never stored in Git.
+# Render Blueprint - DocuMind API (NestJS), STRICT $0 setup.
+#   Frontend  -> Vercel Hobby
+#   Backend   -> Render Free web service (this file)
+#   Database  -> Neon Free PostgreSQL + pgvector
+#   Files     -> Neon Object Storage (private S3-compatible bucket)
+#
+# Render -> New -> Blueprint -> select this repository. Values marked `sync: false` are asked for in
+# the dashboard and are never stored in Git. Do NOT add a payment method to the Render account:
+# without one, usage overages suspend the free service instead of billing you.
+#
+# Render Free limits that shape this design:
+#   - no persistent disk        -> uploads live in the Neon bucket, never on this filesystem
+#   - no pre-deploy command     -> migrations run in GitHub Actions ("CD - Backend (Render)")
+#   - 512 MB RAM                -> low-memory embeddings, one document processed at a time
+#   - sleeps after 15 min idle  -> the first request after a pause takes about a minute
 services:
   - type: web
     name: documind-api
     runtime: docker
     dockerfilePath: ./backend/Dockerfile
     dockerContext: ./backend
-    # Paid instance required (persistent disk + pre-deploy command). "standard" = 2 GB RAM: the
-    # in-process embedding model peaks at ~0.7 GB while indexing, above Starter's 512 MB.
-    plan: standard
-    region: frankfurt
+    plan: free
+    region: frankfurt # same region as the Neon project (aws-eu-central-1)
     branch: main
-    # Deployments are triggered by the "CD - Backend (Render)" workflow, only after CI passes.
+    # Deployments are triggered by the "CD - Backend (Render)" workflow, only after CI passed and
+    # the database migrations were applied.
     autoDeploy: false
-    healthCheckPath: /api/health
-    # Once per release, before the new version receives traffic: create pgvector if missing,
-    # then apply pending Prisma migrations (never resets or drops data).
-    preDeployCommand: npm run migrate:deploy
-    # Uploaded documents and organization logos (/app/uploads in the image). Without this
-    # disk, every redeploy or restart would silently delete all uploaded files.
-    disk:
-      name: documind-uploads
-      mountPath: /app/uploads
-      sizeGB: 5
+    # Database-independent liveness check: the instance can be healthy while Neon is waking up.
+    healthCheckPath: /api/health/live
     envVars:
       - key: NODE_ENV
         value: production
+      - key: NODE_OPTIONS
+        value: --max-old-space-size=300 # keeps the JS heap well inside 512 MB
+      # --- database (Neon Free) ---
       - key: DATABASE_URL
-        sync: false # PostgreSQL with the pgvector extension available
+        sync: false # Neon *direct* connection string, with ?sslmode=require
+      - key: DB_POOL_MAX
+        value: "5" # Neon Free has a small connection budget
+      # --- authentication / CORS ---
       - key: JWT_SECRET
         generateValue: true
       - key: JWT_EXPIRES_IN
         value: 7d
       - key: CORS_ORIGIN
-        sync: false # e.g. https://documind.vercel.app (comma-separated, no trailing slash)
+        sync: false # your Vercel URL, e.g. https://documind.vercel.app (no trailing slash)
       - key: FRONTEND_URL
         sync: false # same value, used to build invitation links
+      # --- file storage: private Neon Object Storage bucket (S3 API) ---
+      - key: STORAGE_DRIVER
+        value: s3
+      - key: S3_ENDPOINT
+        sync: false # `s3_endpoint` returned by the Neon API for your branch (https://...)
+      - key: S3_REGION
+        sync: false # `region` returned by the Neon API (e.g. eu-central-1)
+      - key: S3_BUCKET
+        sync: false
+      - key: S3_ACCESS_KEY_ID
+        sync: false
+      - key: S3_SECRET_ACCESS_KEY
+        sync: false
+      # --- memory-conscious processing (512 MB) ---
       - key: EMBEDDING_PROVIDER
-        value: local
-      # No "local" (Ollama): nothing listens on localhost:11434 inside Render. To use Ollama
-      # in production, host it somewhere reachable, set OLLAMA_BASE_URL and append ",local".
+        value: local # runs in-process, free, no API quota
+      - key: EMBEDDING_LOW_MEMORY
+        value: "true"
+      - key: PROCESSING_CONCURRENCY
+        value: "1"
+      # --- AI providers: free quotas only. OpenAI (paid) is not configured. ---
+      # "local" (Ollama) stays last in the chain; the backend skips it in production unless
+      # OLLAMA_BASE_URL points to a reachable remote server, so nothing is tried on localhost.
       - key: LLM_PROVIDER_ORDER
-        value: gemini,openrouter,groq,openai
+        value: gemini,openrouter,groq,local
       - key: GEMINI_API_KEY
         sync: false
       - key: OPENROUTER_API_KEY
         sync: false
       - key: GROQ_API_KEY
-        sync: false
-      - key: OPENAI_API_KEY
         sync: false

@@ -157,9 +157,10 @@ export class DocumentsController {
     @Param("versionId", ParseIntPipe) versionId: number,
     @Res() res: Response,
   ) {
-    const { absolutePath, downloadName } =
+    const { buffer, downloadName } =
       await this.documentsService.getVersionFile(user.userId, id, versionId);
-    res.download(absolutePath, downloadName);
+    res.attachment(downloadName);
+    res.send(buffer);
   }
 
   @Post(":id/insights")
@@ -206,13 +207,13 @@ export class DocumentsController {
     @Param("id", ParseIntPipe) id: number,
     @Res() res: Response,
   ) {
-    const { absolutePath, mimeType } = await this.documentsService.getImageFile(
+    const { buffer, mimeType } = await this.documentsService.getImageFile(
       user.userId,
       id,
     );
     res.setHeader("Content-Type", mimeType);
     res.setHeader("Cache-Control", "private, max-age=300");
-    res.sendFile(absolutePath);
+    res.send(buffer);
   }
 
   @Get(":id/text")

@@ -1,6 +1,9 @@
 import { Controller, Get, HttpStatus, Res } from "@nestjs/common";
 import type { Response } from "express";
 import { PrismaService } from "../../prisma/prisma.service";
+import { FileStorageService } from "../storage/file-storage.service";
+
+const runningVersion = () => process.env.RENDER_GIT_COMMIT?.slice(0, 7) ?? process.env.APP_VERSION ?? "local";
 
 /**
  * Unauthenticated health endpoints used by Render, Docker HEALTHCHECK, Kubernetes probes and
@@ -8,12 +11,15 @@ import { PrismaService } from "../../prisma/prisma.service";
  */
 @Controller("health")
 export class HealthController {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly storage: FileStorageService,
+  ) {}
 
   /** Liveness: the Node process is up. Deliberately independent of the database. */
   @Get("live")
   live() {
-    return { status: "ok", uptimeSeconds: Math.round(process.uptime()) };
+    return { status: "ok", version: runningVersion(), uptimeSeconds: Math.round(process.uptime()) };
   }
 
   /** Readiness: the API can serve traffic (PostgreSQL reachable, pgvector installed). */
@@ -30,17 +36,19 @@ export class HealthController {
       database = "down";
     }
 
-    const healthy = database === "up" && pgvector !== null;
+    const storage = await this.storage.healthCheck();
+    const healthy = database === "up" && pgvector !== null && storage.ok;
     if (!healthy) res.status(HttpStatus.SERVICE_UNAVAILABLE);
 
     return {
       status: healthy ? "ok" : "error",
       database,
       pgvector: pgvector ?? "missing",
+      storage: storage.ok ? storage.driver : `${storage.driver}-unreachable`,
       uptimeSeconds: Math.round(process.uptime()),
       memoryRssMb: Math.round(process.memoryUsage().rss / 1024 / 1024),
       environment: process.env.NODE_ENV ?? "development",
-      version: process.env.RENDER_GIT_COMMIT?.slice(0, 7) ?? process.env.APP_VERSION ?? "local",
+      version: runningVersion(),
     };
   }
 }

@@ -1,4 +1,4 @@
-import { Injectable, OnModuleDestroy, OnModuleInit } from "@nestjs/common";
+import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from "@nestjs/common";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
 import { PrismaClient } from "../../generated/prisma/client";
@@ -15,7 +15,19 @@ export class PrismaService
       throw new Error("DATABASE_URL is not defined");
     }
 
-    const pool = new Pool({ connectionString: databaseUrl });
+    // Neon Free has a small connection budget and suspends idle compute: keep the pool small and
+    // short-lived. SSL comes from the URL (?sslmode=require). Settings are env-overridable.
+    const pool = new Pool({
+      connectionString: databaseUrl,
+      max: Number(process.env.DB_POOL_MAX ?? 5),
+      idleTimeoutMillis: Number(process.env.DB_POOL_IDLE_MS ?? 10_000),
+      connectionTimeoutMillis: Number(process.env.DB_CONNECT_TIMEOUT_MS ?? 30_000),
+    });
+    // Without a handler, an idle client dropped by the server (compute suspend, restart) is an
+    // unhandled 'error' event that terminates the process.
+    pool.on("error", (error) =>
+      new Logger(PrismaService.name).warn(`Idle database connection dropped: ${error.message}`),
+    );
     const adapter = new PrismaPg(pool);
 
     super({ adapter });

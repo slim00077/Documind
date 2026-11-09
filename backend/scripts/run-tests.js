@@ -48,7 +48,7 @@ async function main() {
        "--test-reporter=spec", "--test-reporter-destination=stdout",
        "--test-reporter=lcov", "--test-reporter-destination=coverage/lcov.info"]
     : [];
-  result = run("node", ["--test", "--test-concurrency=1", ...coverageArgs, "--require", "ts-node/register/transpile-only", ...(files.length ? files : ["test/organizations.test.ts"])]);
+  result = run("node", ["--test", "--test-concurrency=1", ...coverageArgs, "--require", "ts-node/register/transpile-only", ...(files.length ? files : ["test/organizations.test.ts", "test/storage.test.ts", "test/storage-local.test.ts"])]);
   process.exit(result.status ?? 1);
 }
 

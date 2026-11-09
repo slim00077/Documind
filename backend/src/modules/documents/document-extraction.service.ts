@@ -1,10 +1,9 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { readFile } from "node:fs/promises";
-import { join } from "node:path";
 import { PDFParse } from "pdf-parse";
 import * as mammoth from "mammoth";
 import { PrismaService } from "../../prisma/prisma.service";
-import { DOCUMENTS_UPLOAD_DIR } from "./documents-upload.config";
+import { FileStorageService } from "../storage/file-storage.service";
+import { createLimiter } from "../../common/limiter";
 import { DocumentStatus, Prisma } from "../../../generated/prisma/client";
 import { MediaAnalysisService } from "../llm/media-analysis.service";
 import { LlmProviderError } from "../llm/provider-error";
@@ -56,6 +55,11 @@ function sniffImageType(data: Uint8Array): string | null {
 // characters is far beyond any normal document but still bounded.
 const MAX_EXTRACTED_TEXT_LENGTH = 2_000_000;
 
+// Documents processed at the same time. 1 in production keeps memory under a 512 MB container.
+const processingLimiter = createLimiter(
+  Number(process.env.PROCESSING_CONCURRENCY ?? (process.env.NODE_ENV === "production" ? 1 : 3)),
+);
+
 @Injectable()
 export class DocumentExtractionService {
   private readonly logger = new Logger(DocumentExtractionService.name);
@@ -66,10 +70,12 @@ export class DocumentExtractionService {
     private readonly embeddingsService: DocumentEmbeddingsService,
     private readonly notifications: NotificationsService,
     private readonly mediaAnalysis: MediaAnalysisService,
+    private readonly storage: FileStorageService,
   ) {}
 
   async processDocument(documentId: number): Promise<void> {
-    await this.runProcessing(documentId);
+    // One document at a time in production (Render Free has 512 MB RAM); configurable.
+    await processingLimiter(() => this.runProcessing(documentId));
     await this.notifyOutcome(documentId);
   }
 
@@ -244,18 +250,18 @@ export class DocumentExtractionService {
     filePath: string,
     mimeType: string,
   ): Promise<ExtractedContent> {
-    const absolutePath = join(DOCUMENTS_UPLOAD_DIR, filePath);
+    const buffer = await this.storage.read(`documents/${filePath}`);
 
     switch (mimeType) {
       case "application/pdf":
-        return this.extractFromPdf(absolutePath);
+        return this.extractFromPdf(buffer);
       case "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
-        return this.extractFromDocx(absolutePath);
+        return this.extractFromDocx(buffer);
       case "text/plain":
-        return { text: await this.extractFromTxt(absolutePath), visual: [] };
+        return { text: buffer.toString("utf-8"), visual: [] };
       case "image/png":
       case "image/jpeg":
-        return this.extractFromImage(absolutePath, mimeType);
+        return this.extractFromImage(buffer, mimeType);
       default:
         throw new Error(`Unsupported mime type for extraction: ${mimeType}`);
     }
@@ -278,10 +284,9 @@ export class DocumentExtractionService {
 
   /** Standalone image upload: vision is the only way to get any content. */
   private async extractFromImage(
-    absolutePath: string,
+    buffer: Buffer,
     mimeType: string,
   ): Promise<ExtractedContent> {
-    const buffer = await readFile(absolutePath);
     if (buffer.length > MAX_MEDIA_BYTES) {
       throw new VisualProcessingError(
         "This image is too large to analyze (maximum 14 MB).",
@@ -295,9 +300,9 @@ export class DocumentExtractionService {
     };
   }
 
-  private async extractFromPdf(absolutePath: string): Promise<ExtractedContent> {
-    const buffer = await readFile(absolutePath);
-    const parser = new PDFParse({ data: buffer });
+  private async extractFromPdf(buffer: Buffer): Promise<ExtractedContent> {
+    // pdf.js may take ownership of the bytes it is given, so it gets a copy.
+    const parser = new PDFParse({ data: Buffer.from(buffer) });
 
     try {
       const result = await parser.getText({ pageJoiner: "\n\n" });
@@ -305,8 +310,7 @@ export class DocumentExtractionService {
 
       if (result.text.trim().length < MIN_TEXT_CHARS_PER_PAGE * pageCount) {
         // Scanned / image-only: no usable text layer, so let Gemini read the pages.
-        // (Re-read the file: pdf.js may have taken ownership of the first buffer.)
-        const pdfBytes = await readFile(absolutePath);
+        const pdfBytes = buffer;
         if (pdfBytes.length > MAX_MEDIA_BYTES) {
           throw new VisualProcessingError(
             "This scanned PDF is too large to analyze (maximum 14 MB).",
@@ -374,13 +378,13 @@ export class DocumentExtractionService {
     );
   }
 
-  private async extractFromDocx(absolutePath: string): Promise<ExtractedContent> {
-    const result = await mammoth.extractRawText({ path: absolutePath });
+  private async extractFromDocx(buffer: Buffer): Promise<ExtractedContent> {
+    const result = await mammoth.extractRawText({ buffer });
 
     const found: { data: Buffer; mime: string }[] = [];
     try {
       await mammoth.convertToHtml(
-        { path: absolutePath },
+        { buffer },
         {
           convertImage: mammoth.images.imgElement(async (image) => {
             if (VISION_IMAGE_TYPES.has(image.contentType)) {
@@ -454,7 +458,4 @@ export class DocumentExtractionService {
     return items;
   }
 
-  private async extractFromTxt(absolutePath: string): Promise<string> {
-    return readFile(absolutePath, "utf-8");
-  }
 }

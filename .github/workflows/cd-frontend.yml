@@ -43,16 +43,27 @@ jobs:
 
       - name: Check deployment configuration
         run: |
-          missing=""
-          for v in VERCEL_TOKEN VERCEL_ORG_ID VERCEL_PROJECT_ID VITE_API_URL FRONTEND_URL; do
-            [ -n "${!v}" ] || missing="$missing $v"
+          # Secrets tab: VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_PROJECT_ID
+          # Variables tab: VITE_API_URL, FRONTEND_URL   (a value added under the wrong tab is read as empty)
+          missing_secrets=""; missing_vars=""
+          for v in VERCEL_TOKEN VERCEL_ORG_ID VERCEL_PROJECT_ID; do
+            [ -n "${!v}" ] || missing_secrets="$missing_secrets $v"
           done
-          if [ -n "$missing" ]; then
-            echo "::error title=Vercel not configured::Missing:$missing (Settings > Secrets and variables > Actions)"; exit 1
+          for v in VITE_API_URL FRONTEND_URL; do
+            [ -n "${!v}" ] || missing_vars="$missing_vars $v"
+          done
+          if [ -n "$missing_secrets$missing_vars" ]; then
+            [ -z "$missing_secrets" ] || echo "::error title=Missing GitHub SECRETS::Add under Settings > Secrets and variables > Actions > Secrets:$missing_secrets"
+            [ -z "$missing_vars" ] || echo "::error title=Missing GitHub VARIABLES::Add under Settings > Secrets and variables > Actions > Variables:$missing_vars"
+            exit 1
           fi
           case "$VITE_API_URL" in
             https://*) ;;
             *) echo "::error::VITE_API_URL must be the https:// URL of the deployed API"; exit 1 ;;
+          esac
+          case "$FRONTEND_URL" in
+            https://*) ;;
+            *) echo "::error::FRONTEND_URL must be the https:// production URL of the frontend"; exit 1 ;;
           esac
           case "$VITE_API_URL" in *localhost*|*127.0.0.1*) echo "::error::VITE_API_URL points to localhost"; exit 1 ;; esac
 

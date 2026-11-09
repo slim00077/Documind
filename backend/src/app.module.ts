@@ -16,11 +16,13 @@ import { AdminModule } from "./modules/admin/admin.module";
 import { NotificationsModule } from "./modules/notifications/notifications.module";
 import { OrganizationsModule } from "./modules/organizations/organizations.module";
 import { HealthModule } from "./modules/health/health.module";
+import { StorageModule } from "./modules/storage/storage.module";
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     PrismaModule,
+    StorageModule,
     AccessModule,
     AuthModule,
     DocumentsModule,
