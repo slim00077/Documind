@@ -41,6 +41,11 @@ jobs:
     env:
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
     steps:
+      # Checkout first: the job's default working directory (backend/) only exists afterwards.
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
       - name: Check the database URL (never printed)
         env:
           URL_TO_CHECK: ${{ secrets.DATABASE_URL }}
@@ -61,10 +66,6 @@ jobs:
             if (u.searchParams.get("sslmode") !== "require") fail("add ?sslmode=require to the Neon connection string");
             console.log("Database URL looks valid: database name length " + db.length + ", SSL required, direct connection.");
           '
-
-      - uses: actions/checkout@v7
-        with:
-          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
       - uses: actions/setup-node@v7
         with:
