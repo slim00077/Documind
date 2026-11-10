@@ -106,7 +106,7 @@ const publicPages = {
   "DocuMind connects your PDF, Word, Excel and image files, extracts key facts and answers questions with sources.":
     "DocuMind relie vos fichiers PDF, Word, Excel et images, en extrait les faits clés et répond aux questions en citant ses sources.",
   "Contract.pdf": "Contrat.pdf",
-  "Renewal.docx": "Renouvellement.docx",
+  "Renewal.docx": "Avenant.docx",
   "Budget-Q3.xlsx": "Budget-T3.xlsx",
   "Scan.png": "Scan.png",
   "{{count}} pages_one": "{{count}} page",
@@ -124,7 +124,7 @@ const publicPages = {
   "60 days written notice before termination <c>1</c>, 30 days for renewal changes <c>2</c>.":
     "Préavis écrit de 60 jours avant résiliation <c>1</c>, 30 jours pour modifier le renouvellement <c>2</c>.",
   "Contract.pdf · p.4": "Contrat.pdf · p. 4",
-  "Renewal.docx · p.2": "Renouvellement.docx · p. 2",
+  "Renewal.docx · p.2": "Avenant.docx · p. 2",
 
   // Landing product mock-ups
   "DocuMind · Assistant": "DocuMind · Assistant",
