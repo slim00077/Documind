@@ -148,7 +148,7 @@ button { cursor: pointer; }
 .detail-panel { padding: 26px; border-radius: 20px; }
 .detail-heading { align-items: flex-start; }
 .detail-heading h2 { margin: 8px 0 0; }
-.detail-actions { display: flex; gap: 10px; }
+.detail-actions { display: flex; flex-wrap: wrap; gap: 10px; }
 .detail-meta { display: grid; gap: 8px; margin: 18px 0 0; }
 .detail-meta div { display: flex; flex-wrap: wrap; gap: 10px; }
 .detail-meta dt { min-width: 110px; color: var(--muted); }
@@ -259,7 +259,7 @@ button { cursor: pointer; }
 .document-row-tag { display: inline-flex; align-items: center; gap: 4px; color: var(--accent); font-size: .76rem; font-weight: 650; }
 .document-row-tag svg { width: 12px; }
 .document-row-tag-muted { color: var(--faint); font-weight: 550; }
-.processing-steps { display: flex; align-items: center; gap: 6px; list-style: none; margin: 8px 0 0; padding: 0; }
+.processing-steps { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; list-style: none; margin: 8px 0 0; padding: 0; }
 .processing-step { display: flex; align-items: center; gap: 6px; font-size: .74rem; color: var(--faint); font-weight: 650; }
 .processing-step:not(:last-child)::after { content: ""; width: 16px; height: 1px; background: var(--border); margin-left: 4px; }
 .processing-step-dot { display: grid; place-items: center; width: 16px; height: 16px; border-radius: 50%; border: 1.5px solid var(--border); color: transparent; }

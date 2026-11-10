@@ -1,5 +1,6 @@
 import { FileSpreadsheet, FileText, Image as ImageIcon, Search, Sparkles } from "lucide-react";
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { Trans, useTranslation } from "react-i18next";
 import GlassCard, { type GlassTone } from "../ui/GlassCard";
 
 type DocChipProps = {
@@ -42,6 +43,7 @@ const HEIGHT = 600;
  * what it does with them. Built from HTML + one SVG overlay; motion is CSS only.
  */
 export default function AnimatedHeroVisual() {
+  const { t } = useTranslation();
   const fitRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(FULL);
 
@@ -65,7 +67,7 @@ export default function AnimatedHeroVisual() {
       className={`hv ${compact ? "compact" : ""}`}
       style={{ width: design, height: HEIGHT, transform: `scale(${scale})` }}
       role="img"
-      aria-label="DocuMind connects your PDF, Word, Excel and image files, extracts key facts and answers questions with sources."
+      aria-label={t("DocuMind connects your PDF, Word, Excel and image files, extracts key facts and answers questions with sources.")}
     >
       <div className="hv-glow" aria-hidden="true" />
 
@@ -78,10 +80,11 @@ export default function AnimatedHeroVisual() {
         ))}
       </svg>
 
-      <DocChip className="d-pdf" tone="violet" kind="pdf" name="Contract.pdf" meta="24 pages" icon={<FileText />} />
-      <DocChip className="d-docx" tone="blue" kind="docx" name="Renewal.docx" meta="8 pages" icon={<FileText />} />
-      <DocChip className="d-xlsx" tone="cyan" kind="xlsx" name="Budget-Q3.xlsx" meta="3 sheets" icon={<FileSpreadsheet />} />
-      <DocChip className="d-img" tone="lavender" kind="img" name="Scan.png" meta="Text recognised" icon={<ImageIcon />} />
+      {/* Illustrative sample files for the marketing visual, translated like the rest of the copy. */}
+      <DocChip className="d-pdf" tone="violet" kind="pdf" name={t("Contract.pdf")} meta={t("{{count}} pages", { count: 24 })} icon={<FileText />} />
+      <DocChip className="d-docx" tone="blue" kind="docx" name={t("Renewal.docx")} meta={t("{{count}} pages", { count: 8 })} icon={<FileText />} />
+      <DocChip className="d-xlsx" tone="cyan" kind="xlsx" name={t("Budget-Q3.xlsx")} meta={t("{{count}} sheets", { count: 3 })} icon={<FileSpreadsheet />} />
+      <DocChip className="d-img" tone="lavender" kind="img" name={t("Scan.png")} meta={t("Text recognised")} icon={<ImageIcon />} />
 
       <GlassCard tone="violet" tilt className="hv-core">
         <svg className="hv-emblem" viewBox="0 0 64 64" fill="none" aria-hidden="true">
@@ -91,30 +94,32 @@ export default function AnimatedHeroVisual() {
           <path d="M47 6l1.8 4.7 4.7 1.8-4.7 1.8L47 19l-1.8-4.7-4.7-1.8 4.7-1.8Z" fill="#7fe0f2" />
         </svg>
         <span className="hv-core-title">DocuMind AI</span>
-        <span className="hv-core-status"><i /> Reading 4 documents</span>
+        <span className="hv-core-status"><i /> {t("Reading {{count}} documents", { count: 4 })}</span>
         <span className="hv-bar"><b /></span>
       </GlassCard>
 
       <GlassCard tone="blue" className="hv-panel hv-extract">
-        <p className="hv-panel-label"><Sparkles /> Key information</p>
+        <p className="hv-panel-label"><Sparkles /> {t("Key information")}</p>
         <div className="hv-chips">
-          <span>Notice <b>60 days</b></span>
-          <span>Value <b>€48,000</b></span>
-          <span>Renewal <b>12 Jan</b></span>
+          <span><Trans i18nKey="Notice <b>60 days</b>" components={{ b: <b /> }} /></span>
+          <span><Trans i18nKey="Value <b>€48,000</b>" components={{ b: <b /> }} /></span>
+          <span><Trans i18nKey="Renewal <b>12 Jan</b>" components={{ b: <b /> }} /></span>
         </div>
       </GlassCard>
 
       <GlassCard tone="violet" className="hv-panel hv-ask">
         <div className="hv-search">
-          <Search /> <span>What notice period applies?</span>
+          <Search /> <span>{t("What notice period applies?")}</span>
         </div>
         <p className="hv-answer">
-          60 days written notice before termination <span className="cite">1</span>, 30 days for renewal changes{" "}
-          <span className="cite">2</span>.
+          <Trans
+            i18nKey="60 days written notice before termination <c>1</c>, 30 days for renewal changes <c>2</c>."
+            components={{ c: <span className="cite" /> }}
+          />
         </p>
         <div className="hv-sources">
-          <span><FileText /> Contract.pdf · p.4</span>
-          <span><FileText /> Renewal.docx · p.2</span>
+          <span><FileText /> {t("Contract.pdf · p.4")}</span>
+          <span><FileText /> {t("Renewal.docx · p.2")}</span>
         </div>
       </GlassCard>
     </div>

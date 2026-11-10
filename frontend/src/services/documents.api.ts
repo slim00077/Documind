@@ -12,6 +12,7 @@ import type {
   UpdateDocumentPayload,
 } from "../types/document";
 import type { SearchResponse } from "../types/search";
+import i18n, { currentLanguage } from "../i18n";
 
 export class ApiError extends Error {
   statusCode: number;
@@ -32,7 +33,7 @@ type RequestOptions = {
 const extractErrorMessage = (data: { message?: string | string[] }): string =>
   Array.isArray(data.message)
     ? data.message.join(" ")
-    : (data.message ?? "Request failed");
+    : (data.message ?? i18n.t("Request failed"));
 
 const request = async <T>(
   path: string,
@@ -144,6 +145,8 @@ export const createDocumentRequest = (
     const xhr = new XMLHttpRequest();
     xhr.open("POST", DOCUMENTS_API_URL);
     xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+    // XHR bypasses the fetch wrapper (config/workspace.ts), so the UI language is set here.
+    xhr.setRequestHeader("Accept-Language", currentLanguage());
 
     xhr.upload.onprogress = (event) => {
       if (event.lengthComputable) {
@@ -170,7 +173,7 @@ export const createDocumentRequest = (
     };
 
     xhr.onerror = () => {
-      reject(new ApiError("Network error while uploading the document.", 0));
+      reject(new ApiError(i18n.t("Network error while uploading the document."), 0));
     };
 
     xhr.send(formData);
@@ -258,7 +261,7 @@ export const downloadVersionRequest = async (
   );
 
   if (!response.ok) {
-    throw new ApiError("Unable to download this version.", response.status);
+    throw new ApiError(i18n.t("Unable to download this version."), response.status);
   }
 
   return response.blob();
@@ -302,7 +305,7 @@ export const getDocumentImageRequest = async (token: string, id: number): Promis
   });
 
   if (!response.ok) {
-    throw new ApiError("Unable to load this image.", response.status);
+    throw new ApiError(i18n.t("Unable to load this image."), response.status);
   }
 
   return response.blob();

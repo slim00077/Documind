@@ -12,6 +12,7 @@ import {
   registerRequest,
   type AuthUser,
 } from "../services/auth.api";
+import { changeLanguage, currentLanguage, toLanguage } from "../i18n";
 
 const AUTH_TOKEN_KEY = "documind_auth_token";
 
@@ -82,6 +83,15 @@ export const AuthProvider = ({
     void hydrateAuth();
   }, [token]);
 
+  // A language saved on the account wins over the device default once the user is known,
+  // so the choice follows them across devices and sessions (same rule as the theme).
+  const savedLanguage = toLanguage(user?.language);
+  useEffect(() => {
+    if (savedLanguage && savedLanguage !== currentLanguage()) {
+      void changeLanguage(savedLanguage);
+    }
+  }, [savedLanguage]);
+
   const login = async (payload: LoginInput): Promise<AuthUser> => {
     const loginResult = await loginRequest(payload);
 
@@ -101,9 +111,11 @@ export const AuthProvider = ({
   const register = async (
     payload: RegisterInput
   ) => {
-    const registerResult = await registerRequest(
-      payload
-    );
+    // New accounts start with the language the visitor is already using.
+    const registerResult = await registerRequest({
+      ...payload,
+      language: currentLanguage() === "fr" ? "FR" : "EN",
+    });
 
     localStorage.setItem(
       AUTH_TOKEN_KEY,

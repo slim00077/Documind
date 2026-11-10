@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { AlertTriangle, FileText, RotateCcw, Search, Settings2, Trash2 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "../../context/AuthContext";
 import {
   ApiError,
@@ -15,12 +16,16 @@ import StatusBadge from "../../components/documents/StatusBadge";
 import AdminDocumentModal from "../../components/admin/AdminDocumentModal";
 import { formatFileSize } from "../../utils/formatFileSize";
 import { formatRelativeTime } from "../../utils/formatRelativeTime";
+import { DOCUMENT_STATUS_LABEL } from "../../config/documents";
+import { formatNumber } from "../../i18n/format";
+import type { DocumentStatus } from "../../types/document";
 
-const STATUSES = ["PENDING", "UPLOADED", "PROCESSING", "READY", "COMPLETED", "FAILED"];
+const STATUSES: DocumentStatus[] = ["PENDING", "UPLOADED", "PROCESSING", "READY", "COMPLETED", "FAILED"];
 
 type StateFilter = "active" | "trashed" | "all";
 
 export default function AdminDocumentsPage() {
+  const { t } = useTranslation();
   const { token } = useAuth();
   const { showToast } = useToast();
 
@@ -51,11 +56,11 @@ export default function AdminDocumentsPage() {
         })
       );
     } catch (loadError) {
-      setError(loadError instanceof ApiError ? loadError.message : "Unable to load documents right now.");
+      setError(loadError instanceof ApiError ? loadError.message : t("Unable to load documents right now."));
     } finally {
       setIsLoading(false);
     }
-  }, [token, appliedSearch, stateFilter, statusFilter]);
+  }, [token, appliedSearch, stateFilter, statusFilter, t]);
 
   useEffect(() => {
     void load();
@@ -65,10 +70,10 @@ export default function AdminDocumentsPage() {
     if (!token) return;
     try {
       await restoreAdminDocumentRequest(token, document.id);
-      showToast(`"${document.name}" was restored.`, "success");
+      showToast(t("\"{{name}}\" was restored.", { name: document.name }), "success");
       void load();
     } catch (restoreError) {
-      showToast(restoreError instanceof ApiError ? restoreError.message : "Unable to restore this document.", "error");
+      showToast(restoreError instanceof ApiError ? restoreError.message : t("Unable to restore this document."), "error");
     }
   };
 
@@ -78,11 +83,11 @@ export default function AdminDocumentsPage() {
     setTrashError("");
     try {
       await trashAdminDocumentRequest(token, pendingTrash.id);
-      showToast("Document moved to Trash.", "success");
+      showToast(t("Document moved to Trash."), "success");
       setPendingTrash(null);
       void load();
     } catch (trashErr) {
-      setTrashError(trashErr instanceof ApiError ? trashErr.message : "Unable to move this document to Trash.");
+      setTrashError(trashErr instanceof ApiError ? trashErr.message : t("Unable to move this document to Trash."));
     } finally {
       setIsTrashing(false);
     }
@@ -92,9 +97,9 @@ export default function AdminDocumentsPage() {
     <section className="page-stack">
       <div className="page-heading">
         <div>
-          <p className="section-kicker">Admin</p>
-          <h1>Documents</h1>
-          <p>View every document on the platform, edit its metadata, manage who can access it, and delete or restore it.</p>
+          <p className="section-kicker">{t("Admin")}</p>
+          <h1>{t("Documents")}</h1>
+          <p>{t("View every document on the platform, edit its metadata, manage who can access it, and delete or restore it.")}</p>
         </div>
       </div>
 
@@ -109,68 +114,68 @@ export default function AdminDocumentsPage() {
           <Search />
           <input
             type="search"
-            placeholder="Search by name, file, or owner"
-            aria-label="Search documents"
+            placeholder={t("Search by name, file, or owner")}
+            aria-label={t("Search documents")}
             value={search}
             onChange={(event) => setSearch(event.target.value)}
           />
         </label>
         <select
           className="auth-input filter-select"
-          aria-label="Filter by state"
+          aria-label={t("Filter by state")}
           value={stateFilter}
           onChange={(event) => setStateFilter(event.target.value as StateFilter)}
         >
-          <option value="active">Active</option>
-          <option value="trashed">In Trash</option>
-          <option value="all">All</option>
+          <option value="active">{t("Active")}</option>
+          <option value="trashed">{t("In Trash")}</option>
+          <option value="all">{t("All")}</option>
         </select>
         <select
           className="auth-input filter-select"
-          aria-label="Filter by status"
+          aria-label={t("Filter by status")}
           value={statusFilter}
           onChange={(event) => setStatusFilter(event.target.value)}
         >
-          <option value="all">All statuses</option>
+          <option value="all">{t("All statuses")}</option>
           {STATUSES.map((status) => (
             <option key={status} value={status}>
-              {status.charAt(0) + status.slice(1).toLowerCase()}
+              {t(DOCUMENT_STATUS_LABEL[status])}
             </option>
           ))}
         </select>
         <button className="button button-secondary" type="submit">
-          Search
+          {t("Search")}
         </button>
       </form>
 
       {isLoading ? (
-        <PageState icon={FileText} title="Loading documents..." compact />
+        <PageState icon={FileText} title={t("Loading documents...")} compact />
       ) : error ? (
         <PageState
           icon={AlertTriangle}
-          title="Couldn't load documents"
+          title={t("Couldn't load documents")}
           message={error}
           tone="error"
           action={
             <button className="button button-secondary" type="button" onClick={() => void load()}>
-              Try again
+              {t("Try again")}
             </button>
           }
         />
       ) : documents.length === 0 ? (
-        <PageState icon={FileText} title="No documents match these filters." compact />
+        <PageState icon={FileText} title={t("No documents match these filters.")} compact />
       ) : (
         <div className="admin-table-wrap">
           <table className="admin-table">
             <thead>
               <tr>
-                <th>Document</th>
-                <th>Owner</th>
-                <th>Status</th>
-                <th>Size</th>
-                <th>Shared</th>
-                <th>Created</th>
-                <th aria-label="Actions" />
+                <th>{t("Document")}</th>
+                <th>{t("Owner")}</th>
+                <th>{t("Status")}</th>
+                <th>{t("Size")}</th>
+                <th>{t("Shared")}</th>
+                <th>{t("Created")}</th>
+                <th aria-label={t("Actions")} />
               </tr>
             </thead>
             <tbody>
@@ -178,7 +183,7 @@ export default function AdminDocumentsPage() {
                 <tr key={document.id}>
                   <td>
                     <strong>{document.name}</strong>
-                    {document.deletedAt ? <span className="audit-action-chip" style={{ marginLeft: 8 }}>In Trash</span> : null}
+                    {document.deletedAt ? <span className="audit-action-chip" style={{ marginLeft: 8 }}>{t("In Trash")}</span> : null}
                     {document.category ? <div className="admin-table-sub">{document.category.name}</div> : null}
                   </td>
                   <td>
@@ -189,14 +194,14 @@ export default function AdminDocumentsPage() {
                     <StatusBadge status={document.status} />
                   </td>
                   <td>{document.size !== null ? formatFileSize(document.size) : "—"}</td>
-                  <td>{document.sharedWithCount}</td>
+                  <td>{formatNumber(document.sharedWithCount)}</td>
                   <td>{formatRelativeTime(document.createdAt)}</td>
                   <td>
                     <div className="admin-row-actions">
                       <button
                         className="icon-button"
                         type="button"
-                        aria-label={`Manage ${document.name}`}
+                        aria-label={t("Manage {{name}}", { name: document.name })}
                         onClick={() => setManagingId(document.id)}
                       >
                         <Settings2 />
@@ -205,7 +210,7 @@ export default function AdminDocumentsPage() {
                         <button
                           className="icon-button"
                           type="button"
-                          aria-label={`Restore ${document.name}`}
+                          aria-label={t("Restore {{name}}", { name: document.name })}
                           onClick={() => void onRestore(document)}
                         >
                           <RotateCcw />
@@ -214,7 +219,7 @@ export default function AdminDocumentsPage() {
                         <button
                           className="icon-button"
                           type="button"
-                          aria-label={`Move ${document.name} to Trash`}
+                          aria-label={t("Move {{name}} to Trash", { name: document.name })}
                           onClick={() => setPendingTrash(document)}
                         >
                           <Trash2 />
@@ -230,7 +235,7 @@ export default function AdminDocumentsPage() {
       )}
 
       {!isLoading && !error && documents.length === 100 ? (
-        <p className="auth-hint">Showing the 100 most recent matches. Narrow the search to see others.</p>
+        <p className="auth-hint">{t("Showing the 100 most recent matches. Narrow the search to see others.")}</p>
       ) : null}
 
       {managingId !== null ? (
@@ -239,9 +244,9 @@ export default function AdminDocumentsPage() {
 
       {pendingTrash ? (
         <ConfirmDialog
-          title="Move to Trash"
-          message={`"${pendingTrash.name}" belongs to ${pendingTrash.user.name}. It will be moved to Trash and the owner will be notified. You can restore it at any time.`}
-          confirmLabel="Move to Trash"
+          title={t("Move to Trash")}
+          message={t("\"{{name}}\" belongs to {{owner}}. It will be moved to Trash and the owner will be notified. You can restore it at any time.", { name: pendingTrash.name, owner: pendingTrash.user.name })}
+          confirmLabel={t("Move to Trash")}
           isBusy={isTrashing}
           error={trashError}
           onConfirm={onConfirmTrash}

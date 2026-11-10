@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import type { ConversationTurn, LLMProvider, RetrievedChunk } from "../llm-provider";
+import type { AnswerOptions, ConversationTurn, LLMProvider, RetrievedChunk } from "../llm-provider";
 
 /**
  * Default provider: makes no network calls and requires no installed model.
@@ -16,7 +16,14 @@ export class NullLlmProvider implements LLMProvider {
     _question: string,
     _chunks: RetrievedChunk[],
     _history: ConversationTurn[] = [],
+    options: AnswerOptions = {},
   ): Promise<string> {
+    if (options.language === "fr") {
+      return (
+        "Aucun fournisseur de génération de réponses n’est encore configuré. Définissez LLM_PROVIDER " +
+        '(par exemple "openai" ou "gemini") et la clé d’API correspondante pour activer les réponses.'
+      );
+    }
     return (
       "No answer-generation provider is configured yet. Set LLM_PROVIDER " +
       '(e.g. "openai" or "gemini") and the matching API key to enable answers.'

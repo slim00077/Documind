@@ -8,11 +8,13 @@ import {
 import CitedAnswer from "./CitedAnswer";
 import { useLocation } from "react-router-dom";
 import { Bot, Send, Square, X } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "../../context/AuthContext";
 import SuggestedQuestions from "./SuggestedQuestions";
 import { useAssistantConversation } from "../../hooks/useAssistantConversation";
 
 export default function FloatingAssistant() {
+  const { t } = useTranslation();
   const { token } = useAuth();
   const location = useLocation();
 
@@ -56,7 +58,7 @@ export default function FloatingAssistant() {
       <button
         type="button"
         className="assistant-launcher"
-        aria-label={isOpen ? "Close AI Assistant" : "Ask AI Assistant"}
+        aria-label={isOpen ? t("Close AI Assistant") : t("Ask AI Assistant")}
         aria-expanded={isOpen}
         onClick={() => setIsOpen((previous) => !previous)}
       >
@@ -67,13 +69,13 @@ export default function FloatingAssistant() {
         <div
           className="assistant-panel"
           role="dialog"
-          aria-label="DocuMind AI Assistant"
+          aria-label={t("DocuMind AI Assistant")}
         >
           <div className="assistant-panel-header">
-            <h2>DocuMind Assistant</h2>
+            <h2>{t("DocuMind Assistant")}</h2>
             <button
               type="button"
-              aria-label="Close assistant"
+              aria-label={t("Close assistant")}
               onClick={() => setIsOpen(false)}
             >
               <X />
@@ -86,10 +88,9 @@ export default function FloatingAssistant() {
                 <div className="empty-icon">
                   <Bot />
                 </div>
-                <h3>Ask about your documents</h3>
+                <h3>{t("Ask about your documents")}</h3>
                 <p>
-                  I'll search your uploaded documents and answer using only
-                  what I find there.
+                  {t("I'll search your uploaded documents and answer using only what I find there.")}
                 </p>
                 <SuggestedQuestions mode="start" disabled={isSending} onPick={(picked) => void sendMessage(picked)} />
               </div>
@@ -112,7 +113,7 @@ export default function FloatingAssistant() {
               <div
                 className="chat-typing"
                 aria-live="polite"
-                aria-label="Assistant is thinking"
+                aria-label={t("Assistant is thinking")}
               >
                 <span />
                 <span />
@@ -138,19 +139,19 @@ export default function FloatingAssistant() {
               value={question}
               onChange={(event) => setQuestion(event.target.value)}
               onKeyDown={onKeyDown}
-              placeholder="Ask a question about your documents"
-              aria-label="Message the AI assistant"
+              placeholder={t("Ask a question about your documents")}
+              aria-label={t("Message the AI assistant")}
               rows={1}
               disabled={isSending}
             />
             {isSending ? (
-            <button type="button" aria-label="Stop generating" onClick={stopStreaming}>
+            <button type="button" aria-label={t("Stop generating")} onClick={stopStreaming}>
               <Square />
             </button>
           ) : (
             <button
               type="submit"
-              aria-label="Send message"
+              aria-label={t("Send message")}
               disabled={!question.trim()}
             >
               <Send />

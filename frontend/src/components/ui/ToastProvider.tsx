@@ -7,6 +7,7 @@ import {
   type ReactNode,
 } from "react";
 import { CheckCircle2, Info, TriangleAlert, X } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 type ToastVariant = "success" | "error" | "info";
 
@@ -31,6 +32,7 @@ const ICONS: Record<ToastVariant, typeof CheckCircle2> = {
 const AUTO_DISMISS_MS = 4500;
 
 export function ToastProvider({ children }: { children: ReactNode }) {
+  const { t } = useTranslation();
   const [toasts, setToasts] = useState<Toast[]>([]);
   const nextId = useRef(0);
 
@@ -59,7 +61,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               <span>{toast.message}</span>
               <button
                 type="button"
-                aria-label="Dismiss notification"
+                aria-label={t("Dismiss notification")}
                 onClick={() => dismiss(toast.id)}
               >
                 <X />

@@ -1,7 +1,8 @@
 import { BadRequestException, Injectable } from "@nestjs/common";
 import { DocumentStatus, Prisma } from "../../../../generated/prisma/client";
 import { PrismaService } from "../../../prisma/prisma.service";
-import { asInt, asObjects, asString, buildAnalysisPrompt, hashKey, normalize } from "./analysis-support";
+import { asInt, asObjects, asString, buildAnalysisPrompt, hashKey, languageKey, normalize } from "./analysis-support";
+import { DEFAULT_LANGUAGE, type AppLanguage } from "../../../common/i18n/language";
 import { DocumentIntelligenceService } from "./document-intelligence.service";
 import { anyAccessWhere, workspaceAccessWhere } from "../../access/document-access";
 
@@ -45,7 +46,7 @@ export class CollectionInsightsService {
     private readonly intelligence: DocumentIntelligenceService,
   ) {}
 
-  async analyze(userId: number, input: CollectionInput) {
+  async analyze(userId: number, input: CollectionInput, language: AppLanguage = DEFAULT_LANGUAGE) {
     const docs = await this.accessibleDocuments(userId, input);
     if (docs.length === 0) {
       throw new BadRequestException("No processed documents are available to analyse.");
@@ -53,7 +54,7 @@ export class CollectionInsightsService {
     const interpret = input.interpret !== false;
     const fingerprint = docs.map((d) => `${d.id}:${d.updatedAt.getTime()}:${d.chunks}`);
 
-    return this.intelligence.cached(userId, "collection", hashKey(fingerprint, interpret), async () => {
+    return this.intelligence.cached(userId, "collection", hashKey(fingerprint, interpret, ...languageKey(language)), async () => {
       const ids = docs.map((d) => d.id);
       const idList = Prisma.join(ids);
       const totalChunks = docs.reduce((n, d) => n + d.chunks, 0);
@@ -93,7 +94,7 @@ export class CollectionInsightsService {
           characterCount: docs.reduce((n, d) => n + d.characters, 0),
         },
         computed,
-        interpretation: interpret ? await this.interpretation(computed) : null,
+        interpretation: interpret ? await this.interpretation(computed, language) : null,
       };
     });
   }
@@ -295,12 +296,15 @@ export class CollectionInsightsService {
     recurringTerms: { term: string; documents: number }[];
     overlaps: { similarity: number; a: Overlap; b: Overlap }[];
     documents: { name: string }[];
-  }) {
+  }, language: AppLanguage = DEFAULT_LANGUAGE) {
     const terms = computed.recurringTerms.map((t) => t.term);
     if (terms.length === 0 && computed.overlaps.length === 0) {
       return {
         label: "AI interpretation",
-        summary: "There was not enough shared content across these documents to interpret.",
+        summary:
+          language === "fr"
+            ? "Les documents n’ont pas assez de contenu en commun pour être interprétés."
+            : "There was not enough shared content across these documents to interpret.",
         themes: [],
         assessments: [],
       };
@@ -324,6 +328,7 @@ export class CollectionInsightsService {
           { chunkIndex: 1, text: `B (${o.b.document.name}): ${o.b.excerpt}` },
         ],
       })),
+      language,
     );
 
     const raw = (await this.intelligence.structured(

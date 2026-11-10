@@ -1,6 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import type { ConversationTurn, JsonSchema, LLMProvider, RetrievedChunk } from "../llm-provider";
+import type { AnswerOptions, ConversationTurn, JsonSchema, LLMProvider, RetrievedChunk } from "../llm-provider";
 import { parseJsonLoose } from "../structured";
 import { buildRagPrompt } from "../build-rag-prompt";
 import { LlmProviderError } from "../provider-error";
@@ -109,9 +109,10 @@ export class GeminiLlmProvider implements LLMProvider {
     question: string,
     chunks: RetrievedChunk[],
     history: ConversationTurn[] = [],
+    options: AnswerOptions = {},
   ): Promise<string> {
     return this.generateWithFallback([
-      { text: buildRagPrompt(question, chunks, history) },
+      { text: buildRagPrompt(question, chunks, history, options) },
     ]);
   }
 
@@ -134,6 +135,7 @@ export class GeminiLlmProvider implements LLMProvider {
     chunks: RetrievedChunk[],
     history: ConversationTurn[] = [],
     signal?: AbortSignal,
+    options: AnswerOptions = {},
   ): AsyncGenerator<string> {
     if (!this.apiKey) {
       throw new LlmProviderError(
@@ -142,7 +144,7 @@ export class GeminiLlmProvider implements LLMProvider {
       );
     }
 
-    const parts: GeminiPart[] = [{ text: buildRagPrompt(question, chunks, history) }];
+    const parts: GeminiPart[] = [{ text: buildRagPrompt(question, chunks, history, options) }];
     let lastError: LlmProviderError | undefined;
 
     for (const model of this.candidateModels) {

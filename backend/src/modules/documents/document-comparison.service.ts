@@ -10,6 +10,7 @@ import { PrismaService } from "../../prisma/prisma.service";
 import { LLM_PROVIDER_TOKEN, type LLMProvider } from "../llm/llm-provider";
 import { DocumentsService } from "./documents.service";
 import { DocumentStatus } from "../../../generated/prisma/client";
+import { DEFAULT_LANGUAGE, type AppLanguage } from "../../common/i18n/language";
 
 const MAX_CHUNKS_PER_DOCUMENT = 8;
 
@@ -55,7 +56,7 @@ export class DocumentComparisonService {
     @Inject(LLM_PROVIDER_TOKEN) private readonly llmProvider: LLMProvider,
   ) {}
 
-  async compare(userId: number, idA: number, idB: number) {
+  async compare(userId: number, idA: number, idB: number, language: AppLanguage = DEFAULT_LANGUAGE) {
     if (idA === idB) {
       throw new BadRequestException("Choose two different documents to compare.");
     }
@@ -99,7 +100,7 @@ export class DocumentComparisonService {
           documentName: label("B", docB.name),
           chunkIndex: chunk.chunkIndex,
         })),
-      ]);
+      ], [], { language });
     } catch (error) {
       if (error instanceof HttpException) {
         throw error;

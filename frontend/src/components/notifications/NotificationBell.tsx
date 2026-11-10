@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Bell, CheckCheck, X } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "../../context/AuthContext";
 import {
   deleteNotificationRequest,
@@ -14,6 +15,7 @@ import { formatRelativeTime } from "../../utils/formatRelativeTime";
 const POLL_INTERVAL_MS = 30_000;
 
 export default function NotificationBell() {
+  const { t, i18n } = useTranslation();
   const { token } = useAuth();
   const navigate = useNavigate();
   const [items, setItems] = useState<AppNotification[]>([]);
@@ -34,11 +36,12 @@ export default function NotificationBell() {
     }
   }, [token]);
 
+  // Titles and messages are localized by the server, so a language change reloads them.
   useEffect(() => {
     void load();
     const timer = window.setInterval(() => void load(), POLL_INTERVAL_MS);
     return () => window.clearInterval(timer);
-  }, [load]);
+  }, [load, i18n.resolvedLanguage]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -88,7 +91,7 @@ export default function NotificationBell() {
       <button
         className="icon-button notification-bell-button"
         type="button"
-        aria-label={unreadCount > 0 ? `Notifications (${unreadCount} unread)` : "Notifications"}
+        aria-label={unreadCount > 0 ? t("Notifications ({{count}} unread)", { count: unreadCount }) : t("Notifications")}
         aria-expanded={isOpen}
         onClick={toggle}
       >
@@ -99,23 +102,23 @@ export default function NotificationBell() {
       </button>
 
       {isOpen ? (
-        <div className="notification-panel" role="dialog" aria-label="Notifications">
+        <div className="notification-panel" role="dialog" aria-label={t("Notifications")}>
           <div className="notification-panel-header">
-            <strong>Notifications</strong>
+            <strong>{t("Notifications")}</strong>
             <button
               className="text-link notification-mark-all"
               type="button"
               disabled={unreadCount === 0}
               onClick={onMarkAll}
             >
-              <CheckCheck /> Mark all read
+              <CheckCheck /> {t("Mark all read")}
             </button>
           </div>
 
           {loadFailed && items.length === 0 ? (
-            <p className="notification-empty">Couldn&apos;t load notifications right now.</p>
+            <p className="notification-empty">{t("Couldn't load notifications right now.")}</p>
           ) : items.length === 0 ? (
-            <p className="notification-empty">You&apos;re all caught up.</p>
+            <p className="notification-empty">{t("You're all caught up.")}</p>
           ) : (
             <ul className="notification-list">
               {items.map((item) => (
@@ -128,7 +131,7 @@ export default function NotificationBell() {
                   <button
                     className="icon-button notification-dismiss"
                     type="button"
-                    aria-label="Dismiss notification"
+                    aria-label={t("Dismiss notification")}
                     onClick={() => onDismiss(item)}
                   >
                     <X />

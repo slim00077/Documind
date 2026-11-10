@@ -1,4 +1,5 @@
-import { IsEmail, IsString, MinLength } from "class-validator";
+import { IsEmail, IsEnum, IsOptional, IsString, MinLength } from "class-validator";
+import { Language } from "../../../../generated/prisma/client";
 
 export class RegisterDto {
   @IsString()
@@ -13,4 +14,9 @@ export class RegisterDto {
     message: "Password must be at least 8 characters long",
   })
   password!: string;
+
+  /** Optional: the interface language the visitor signed up in. */
+  @IsOptional()
+  @IsEnum(Language)
+  language?: Language;
 }

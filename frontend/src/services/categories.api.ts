@@ -1,5 +1,6 @@
 import { CATEGORIES_API_URL } from "../config/api";
 import type { Category } from "../types/category";
+import i18n from "../i18n";
 
 export class ApiError extends Error {
   statusCode: number;
@@ -20,7 +21,7 @@ type RequestOptions = {
 const extractErrorMessage = (data: { message?: string | string[] }): string =>
   Array.isArray(data.message)
     ? data.message.join(" ")
-    : (data.message ?? "Request failed");
+    : (data.message ?? i18n.t("Request failed"));
 
 const request = async <T>(
   path: string,

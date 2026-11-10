@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { RotateCcw, Trash2, X } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "../../context/AuthContext";
 import {
   ApiError,
@@ -19,6 +20,8 @@ import { formatFileSize } from "../../utils/formatFileSize";
 import { formatRelativeTime } from "../../utils/formatRelativeTime";
 import StatusBadge from "../documents/StatusBadge";
 import { useToast } from "../ui/ToastProvider";
+import { PERMISSION_ROLE_LABEL } from "../../config/documents";
+import { translateStoredText } from "../../i18n/serverText";
 
 const ROLE_OPTIONS: DocumentPermissionRole[] = ["VIEWER", "EDITOR"];
 
@@ -30,6 +33,7 @@ type AdminDocumentModalProps = {
 };
 
 export default function AdminDocumentModal({ documentId, onClose, onChanged }: AdminDocumentModalProps) {
+  const { t } = useTranslation();
   const { token } = useAuth();
   const { showToast } = useToast();
 
@@ -67,9 +71,9 @@ export default function AdminDocumentModal({ documentId, onClose, onChanged }: A
         setUsers(usersResult.items);
       })
       .catch((loadError) =>
-        setError(loadError instanceof ApiError ? loadError.message : "Unable to load this document right now.")
+        setError(loadError instanceof ApiError ? loadError.message : t("Unable to load this document right now."))
       );
-  }, [token, documentId]);
+  }, [token, documentId, t]);
 
   const run = async (action: () => Promise<AdminDocumentDetail>, successMessage: string) => {
     setIsBusy(true);
@@ -78,7 +82,7 @@ export default function AdminDocumentModal({ documentId, onClose, onChanged }: A
       onChanged();
       showToast(successMessage, "success");
     } catch (actionError) {
-      showToast(actionError instanceof ApiError ? actionError.message : "That action failed. Please try again.", "error");
+      showToast(actionError instanceof ApiError ? actionError.message : t("That action failed. Please try again."), "error");
     } finally {
       setIsBusy(false);
     }
@@ -94,7 +98,7 @@ export default function AdminDocumentModal({ documentId, onClose, onChanged }: A
           description: description.trim(),
           categoryId: categoryId ? Number(categoryId) : null,
         }),
-      "Document updated."
+      t("Document updated.")
     );
     setIsSaving(false);
   };
@@ -117,72 +121,72 @@ export default function AdminDocumentModal({ documentId, onClose, onChanged }: A
         className="modal-card"
         role="dialog"
         aria-modal="true"
+        aria-label={t("Manage document")}
         onClick={(event) => event.stopPropagation()}
         style={{ width: "min(100%, 640px)" }}
       >
         <div className="page-heading" style={{ marginBottom: 4 }}>
           <div>
-            <h2>Manage document</h2>
-            <p className="modal-message">Edit metadata, control access, or move this document to Trash.</p>
+            <h2>{t("Manage document")}</h2>
+            <p className="modal-message">{t("Edit metadata, control access, or move this document to Trash.")}</p>
           </div>
-          <button className="icon-button" type="button" onClick={onClose} aria-label="Close">
+          <button className="icon-button" type="button" onClick={onClose} aria-label={t("Close")}>
             <X />
           </button>
         </div>
 
         {error ? <p className="auth-error">{error}</p> : null}
-        {!detail && !error ? <p className="auth-hint">Loading document...</p> : null}
+        {!detail && !error ? <p className="auth-hint">{t("Loading document...")}</p> : null}
 
         {detail ? (
           <div className="admin-doc-modal">
             <dl className="insights-list">
               <div>
-                <dt>Owner</dt>
+                <dt>{t("Owner")}</dt>
                 <dd>
                   {detail.user.name} ({detail.user.email})
                 </dd>
               </div>
               <div>
-                <dt>Status</dt>
+                <dt>{t("Status")}</dt>
                 <dd>
                   <StatusBadge status={detail.status} />
                 </dd>
               </div>
               <div>
-                <dt>File</dt>
+                <dt>{t("File")}</dt>
                 <dd>
-                  {detail.originalName ?? "No file"}
+                  {detail.originalName ?? t("No file")}
                   {detail.size !== null ? ` (${formatFileSize(detail.size)})` : ""}
                 </dd>
               </div>
               <div>
-                <dt>Processed</dt>
+                <dt>{t("Processed")}</dt>
                 <dd>
-                  {detail.chunkCount} chunk{detail.chunkCount === 1 ? "" : "s"} · {detail.versionCount} older version
-                  {detail.versionCount === 1 ? "" : "s"}
+                  {t("{{count}} chunks", { count: detail.chunkCount })} · {t("{{count}} older versions", { count: detail.versionCount })}
                 </dd>
               </div>
               <div>
-                <dt>Updated</dt>
+                <dt>{t("Updated")}</dt>
                 <dd>{formatRelativeTime(detail.updatedAt)}</dd>
               </div>
               {detail.deletedAt ? (
                 <div>
-                  <dt>In Trash since</dt>
+                  <dt>{t("In Trash since")}</dt>
                   <dd>{formatRelativeTime(detail.deletedAt)}</dd>
                 </div>
               ) : null}
             </dl>
-            {detail.processingError ? <p className="auth-error">{detail.processingError}</p> : null}
+            {detail.processingError ? <p className="auth-error">{translateStoredText(detail.processingError, t)}</p> : null}
 
-            <h3>Metadata</h3>
+            <h3>{t("Metadata")}</h3>
             <div className="auth-form">
               <label>
-                <span>Name</span>
+                <span>{t("Name")}</span>
                 <input className="auth-input" value={name} maxLength={200} onChange={(event) => setName(event.target.value)} />
               </label>
               <label>
-                <span>Description</span>
+                <span>{t("Description")}</span>
                 <textarea
                   className="auth-input"
                   rows={3}
@@ -192,9 +196,9 @@ export default function AdminDocumentModal({ documentId, onClose, onChanged }: A
                 />
               </label>
               <label>
-                <span>Category</span>
+                <span>{t("Category")}</span>
                 <select className="auth-input" value={categoryId} onChange={(event) => setCategoryId(event.target.value)}>
-                  <option value="">Uncategorized</option>
+                  <option value="">{t("Uncategorized")}</option>
                   {categories.map((category) => (
                     <option key={category.id} value={category.id}>
                       {category.name}
@@ -209,15 +213,15 @@ export default function AdminDocumentModal({ documentId, onClose, onChanged }: A
                   disabled={!isDirty || !name.trim() || isSaving || isBusy}
                   onClick={onSave}
                 >
-                  {isSaving ? "Saving..." : "Save changes"}
+                  {isSaving ? t("Saving...") : t("Save changes")}
                 </button>
               </div>
             </div>
 
-            <h3>Access</h3>
-            <p className="auth-hint">The owner always has full access. Everyone below was explicitly granted access.</p>
+            <h3>{t("Access")}</h3>
+            <p className="auth-hint">{t("The owner always has full access. Everyone below was explicitly granted access.")}</p>
             {detail.permissions.length === 0 ? (
-              <p className="auth-hint">This document isn&apos;t shared with anyone.</p>
+              <p className="auth-hint">{t("This document isn't shared with anyone.")}</p>
             ) : (
               <ul className="category-list">
                 {detail.permissions.map((permission) => (
@@ -230,7 +234,7 @@ export default function AdminDocumentModal({ documentId, onClose, onChanged }: A
                       className="auth-input filter-select"
                       value={permission.role}
                       disabled={isBusy}
-                      aria-label={`Access level for ${permission.user.name}`}
+                      aria-label={t("Access level for {{name}}", { name: permission.user.name })}
                       onChange={(event) =>
                         token &&
                         run(
@@ -241,13 +245,13 @@ export default function AdminDocumentModal({ documentId, onClose, onChanged }: A
                               permission.id,
                               event.target.value as DocumentPermissionRole
                             ),
-                          "Access updated."
+                          t("Access updated.")
                         )
                       }
                     >
                       {ROLE_OPTIONS.map((role) => (
                         <option key={role} value={role}>
-                          {role}
+                          {t(PERMISSION_ROLE_LABEL[role])}
                         </option>
                       ))}
                     </select>
@@ -255,11 +259,11 @@ export default function AdminDocumentModal({ documentId, onClose, onChanged }: A
                       <button
                         className="icon-button"
                         type="button"
-                        aria-label={`Revoke access for ${permission.user.name}`}
+                        aria-label={t("Revoke access for {{name}}", { name: permission.user.name })}
                         disabled={isBusy}
                         onClick={() =>
                           token &&
-                          run(() => revokeAdminDocumentAccessRequest(token, detail.id, permission.id), "Access revoked.")
+                          run(() => revokeAdminDocumentAccessRequest(token, detail.id, permission.id), t("Access revoked."))
                         }
                       >
                         <Trash2 />
@@ -273,11 +277,11 @@ export default function AdminDocumentModal({ documentId, onClose, onChanged }: A
             <div className="category-create-row">
               <select
                 className="auth-input"
-                aria-label="User to share with"
+                aria-label={t("User to share with")}
                 value={grantUserId}
                 onChange={(event) => setGrantUserId(event.target.value)}
               >
-                <option value="">Share with a user...</option>
+                <option value="">{t("Share with a user...")}</option>
                 {grantableUsers.map((user) => (
                   <option key={user.id} value={user.id}>
                     {user.name} ({user.email})
@@ -286,13 +290,13 @@ export default function AdminDocumentModal({ documentId, onClose, onChanged }: A
               </select>
               <select
                 className="auth-input filter-select"
-                aria-label="Access level"
+                aria-label={t("Access level")}
                 value={grantRole}
                 onChange={(event) => setGrantRole(event.target.value as DocumentPermissionRole)}
               >
                 {ROLE_OPTIONS.map((role) => (
                   <option key={role} value={role}>
-                    {role}
+                    {t(PERMISSION_ROLE_LABEL[role])}
                   </option>
                 ))}
               </select>
@@ -304,11 +308,11 @@ export default function AdminDocumentModal({ documentId, onClose, onChanged }: A
                   token &&
                   run(
                     () => grantAdminDocumentAccessRequest(token, detail.id, Number(grantUserId), grantRole),
-                    "Access granted."
+                    t("Access granted.")
                   ).then(() => setGrantUserId(""))
                 }
               >
-                Share
+                {t("Share")}
               </button>
             </div>
 
@@ -318,22 +322,22 @@ export default function AdminDocumentModal({ documentId, onClose, onChanged }: A
                   className="button button-secondary"
                   type="button"
                   disabled={isBusy}
-                  onClick={() => token && run(() => restoreAdminDocumentRequest(token, detail.id), "Document restored.")}
+                  onClick={() => token && run(() => restoreAdminDocumentRequest(token, detail.id), t("Document restored."))}
                 >
-                  <RotateCcw /> Restore from Trash
+                  <RotateCcw /> {t("Restore from Trash")}
                 </button>
               ) : (
                 <button
                   className="button button-secondary"
                   type="button"
                   disabled={isBusy}
-                  onClick={() => token && run(() => trashAdminDocumentRequest(token, detail.id), "Document moved to Trash.")}
+                  onClick={() => token && run(() => trashAdminDocumentRequest(token, detail.id), t("Document moved to Trash."))}
                 >
-                  <Trash2 /> Move to Trash
+                  <Trash2 /> {t("Move to Trash")}
                 </button>
               )}
               <button className="button button-primary" type="button" onClick={onClose}>
-                Done
+                {t("Done")}
               </button>
             </div>
           </div>

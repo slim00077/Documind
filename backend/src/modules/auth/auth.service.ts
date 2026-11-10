@@ -10,6 +10,7 @@ import { PrismaService } from "../../prisma/prisma.service";
 import {
   AiResponseStyle,
   AuditAction,
+  Language,
   Role,
   Theme,
 } from "../../../generated/prisma/client";
@@ -27,6 +28,8 @@ type SafeUser = {
   role: Role;
   theme: Theme;
   aiResponseStyle: AiResponseStyle;
+  /** Null until the user picks a language; the client then uses the browser language. */
+  language: Language | null;
 };
 
 type AuthResponse = {
@@ -53,6 +56,7 @@ export class AuthService {
     role: Role;
     theme: Theme;
     aiResponseStyle: AiResponseStyle;
+    language: Language | null;
   }): SafeUser {
     return {
       id: user.id,
@@ -61,6 +65,7 @@ export class AuthService {
       role: user.role,
       theme: user.theme,
       aiResponseStyle: user.aiResponseStyle,
+      language: user.language,
     };
   }
 
@@ -94,6 +99,8 @@ export class AuthService {
         password: hashedPassword,
         // Public sign-ups are always students; privileged roles are admin-granted.
         role: Role.STUDENT,
+        // The language the visitor was using when signing up becomes their saved preference.
+        ...(dto.language ? { language: dto.language } : {}),
       },
       select: {
         id: true,
@@ -102,6 +109,7 @@ export class AuthService {
         role: true,
         theme: true,
         aiResponseStyle: true,
+        language: true,
       },
     });
 
@@ -162,6 +170,7 @@ export class AuthService {
         role: true,
         theme: true,
         aiResponseStyle: true,
+        language: true,
       },
     });
 
@@ -202,6 +211,7 @@ export class AuthService {
         role: true,
         theme: true,
         aiResponseStyle: true,
+        language: true,
       },
     });
 
@@ -243,6 +253,7 @@ export class AuthService {
         ...(dto.aiResponseStyle !== undefined
           ? { aiResponseStyle: dto.aiResponseStyle }
           : {}),
+        ...(dto.language !== undefined ? { language: dto.language } : {}),
       },
       select: {
         id: true,
@@ -251,6 +262,7 @@ export class AuthService {
         role: true,
         theme: true,
         aiResponseStyle: true,
+        language: true,
       },
     });
 

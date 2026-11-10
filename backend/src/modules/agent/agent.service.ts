@@ -5,6 +5,7 @@ import { DocumentSearchService, type SearchResult } from "../documents/document-
 import { LLM_PROVIDER_TOKEN, type JsonSchema, type LLMProvider, type RetrievedChunk } from "../llm/llm-provider";
 import { MessageRole } from "../../../generated/prisma/client";
 import { anyAccessWhere, workspaceAccessWhere } from "../access/document-access";
+import { DEFAULT_LANGUAGE, type AppLanguage } from "../../common/i18n/language";
 
 const MAX_SEARCHES = 6;
 const MAX_READS = 3;
@@ -63,17 +64,74 @@ const PLAN_INSTRUCTIONS = [
   "  (e.g. for summaries). May be empty.",
 ].join("\n");
 
-const REPORT_INSTRUCTIONS = [
-  "Write the final analysis report for the task below using ONLY the document",
-  "context provided. Ignore the default advice to keep answers short: produce a",
-  "structured Markdown report with these sections:",
-  "## Summary",
-  "## Findings (group by document; name the document for each point)",
-  "## Comparison (only when more than one document is involved: agreements,",
-  "differences and contradictions, citing which document says what)",
-  "## Gaps (what the documents do not cover)",
-  "Never invent facts; if the evidence is insufficient say so plainly.",
-].join("\n");
+const REPORT_SECTIONS: Record<AppLanguage, string[]> = {
+  en: [
+    "## Summary",
+    "## Findings (group by document; name the document for each point)",
+    "## Comparison (only when more than one document is involved: agreements,",
+    "differences and contradictions, citing which document says what)",
+    "## Gaps (what the documents do not cover)",
+  ],
+  // Headings in the user's language; the guidance in brackets stays for the model.
+  fr: [
+    "## Résumé",
+    "## Constats (group by document; name the document for each point)",
+    "## Comparaison (only when more than one document is involved: agreements,",
+    "differences and contradictions, citing which document says what)",
+    "## Lacunes (what the documents do not cover)",
+  ],
+};
+
+const reportInstructions = (language: AppLanguage) =>
+  [
+    "Write the final analysis report for the task below using ONLY the document",
+    "context provided. Ignore the default advice to keep answers short: produce a",
+    "structured Markdown report with these sections:",
+    ...REPORT_SECTIONS[language],
+    "Never invent facts; if the evidence is insufficient say so plainly.",
+  ].join("\n");
+
+/** User-visible agent texts (progress steps, canned reports, saved history), per language. */
+const AGENT_TEXT: Record<
+  AppLanguage,
+  {
+    planning: string;
+    writing: string;
+    noDocuments: string;
+    noEvidence: string;
+    allDocuments: string;
+    searching: (where: string, query: string) => string;
+    reading: (name: string) => string;
+    retrieving: (parts: string) => string;
+    title: (task: string) => string;
+    request: (task: string) => string;
+  }
+> = {
+  en: {
+    planning: "Planning the analysis",
+    writing: "Writing the report",
+    noDocuments: "There are no documents available to analyze.",
+    noEvidence: "I couldn't find evidence in your documents relevant to this task.",
+    allDocuments: "all documents",
+    searching: (where, query) => `searching ${where} for "${query}"`,
+    reading: (name) => `reading ${name}`,
+    retrieving: (parts) => `Retrieving evidence: ${parts}`,
+    title: (task) => `Analysis: ${task}`,
+    request: (task) => `Deep analysis: ${task}`,
+  },
+  fr: {
+    planning: "Planification de l’analyse",
+    writing: "Rédaction du rapport",
+    noDocuments: "Aucun document n’est disponible pour l’analyse.",
+    noEvidence: "Je n’ai trouvé dans vos documents aucun élément pertinent pour cette tâche.",
+    allDocuments: "tous les documents",
+    searching: (where, query) => `recherche de « ${query} » dans ${where}`,
+    reading: (name) => `lecture de ${name}`,
+    retrieving: (parts) => `Collecte des éléments : ${parts}`,
+    title: (task) => `Analyse : ${task}`,
+    request: (task) => `Analyse approfondie : ${task}`,
+  },
+};
 
 @Injectable()
 export class AgentService {
@@ -92,7 +150,9 @@ export class AgentService {
     documentIds?: number[],
     signal?: AbortSignal,
     conversationId?: number,
+    language: AppLanguage = DEFAULT_LANGUAGE,
   ): AsyncGenerator<AgentEvent> {
+    const text = AGENT_TEXT[language];
     // Ownership boundary: every tool only ever sees this list.
     const documents = await this.prisma.document.findMany({
       where: {
@@ -108,13 +168,13 @@ export class AgentService {
 
     let llmCalls = 0;
     const finish = async (report: string, sources: AssistantSource[]): Promise<AgentEvent> => {
-      const savedId = await this.persist(userId, conversationId, task, report, sources);
+      const savedId = await this.persist(userId, conversationId, task, report, sources, language);
       this.logger.log(`Analysis finished: ${llmCalls} LLM call(s), ${sources.length} source(s)`);
       return { type: "done", result: { report, sources, conversationId: savedId, llmCalls } };
     };
 
     if (allowed.size === 0) {
-      const report = "There are no documents available to analyze.";
+      const report = text.noDocuments;
       yield { type: "delta", text: report };
       yield await finish(report, []);
       return;
@@ -122,13 +182,13 @@ export class AgentService {
 
     // LLM call 1: structured plan.
     signal?.throwIfAborted();
-    yield { type: "step", text: "Planning the analysis" };
+    yield { type: "step", text: text.planning };
     llmCalls++;
     const plan = await this.plan(task, documents, allowed);
 
     // Retrieval: no LLM involved, all lookups run in parallel.
     const evidence = new Map<number, SearchResult>();
-    yield { type: "step", text: this.describe(plan, allowed) };
+    yield { type: "step", text: this.describe(plan, allowed, language) };
     signal?.throwIfAborted();
     await Promise.all([
       ...plan.searches.map((search) => this.search(userId, search, allowed, evidence)),
@@ -136,7 +196,7 @@ export class AgentService {
     ]);
 
     if (evidence.size === 0) {
-      const report = "I couldn't find evidence in your documents relevant to this task.";
+      const report = text.noEvidence;
       yield { type: "delta", text: report };
       yield await finish(report, []);
       return;
@@ -151,13 +211,13 @@ export class AgentService {
     }));
 
     // LLM call 2: streamed synthesis.
-    yield { type: "step", text: "Writing the report" };
+    yield { type: "step", text: text.writing };
     llmCalls++;
     let report = "";
     try {
-      for await (const text of this.streamReport(`${REPORT_INSTRUCTIONS}\n\nTask: ${task}`, chunks, signal)) {
-        report += text;
-        yield { type: "delta", text };
+      for await (const delta of this.streamReport(`${reportInstructions(language)}\n\nTask: ${task}`, chunks, signal, language)) {
+        report += delta;
+        yield { type: "delta", text: delta };
       }
     } catch (error) {
       if (signal?.aborted) throw error;
@@ -171,11 +231,12 @@ export class AgentService {
     question: string,
     chunks: RetrievedChunk[],
     signal?: AbortSignal,
+    language: AppLanguage = DEFAULT_LANGUAGE,
   ): AsyncGenerator<string> {
     if (this.llm.streamAnswer) {
-      yield* this.llm.streamAnswer(question, chunks, [], signal);
+      yield* this.llm.streamAnswer(question, chunks, [], signal, { language });
     } else {
-      yield await this.llm.generateAnswer(question, chunks, []);
+      yield await this.llm.generateAnswer(question, chunks, [], { language });
     }
   }
 
@@ -240,15 +301,16 @@ export class AgentService {
     return searches.length || readDocumentIds.length ? { searches, readDocumentIds } : null;
   }
 
-  private describe(plan: Plan, allowed: Map<number, DocumentRef>): string {
+  private describe(plan: Plan, allowed: Map<number, DocumentRef>, language: AppLanguage = DEFAULT_LANGUAGE): string {
+    const text = AGENT_TEXT[language];
     const parts = [
       ...plan.searches.map((search) => {
-        const where = search.documentId !== undefined ? allowed.get(search.documentId)?.name : "all documents";
-        return `searching ${where} for "${search.query.slice(0, 60)}"`;
+        const where = search.documentId !== undefined ? allowed.get(search.documentId)?.name ?? "" : text.allDocuments;
+        return text.searching(where, search.query.slice(0, 60));
       }),
-      ...plan.readDocumentIds.map((id) => `reading ${allowed.get(id)?.name}`),
+      ...plan.readDocumentIds.map((id) => text.reading(allowed.get(id)?.name ?? "")),
     ];
-    return `Retrieving evidence: ${parts.join("; ")}`;
+    return text.retrieving(parts.join(language === "fr" ? " ; " : "; "));
   }
 
   /** Balanced selection so every document keeps representation in the report. */
@@ -320,6 +382,7 @@ export class AgentService {
     task: string,
     report: string,
     sources: AssistantSource[],
+    language: AppLanguage = DEFAULT_LANGUAGE,
   ): Promise<number | null> {
     try {
       let id = conversationId;
@@ -328,7 +391,7 @@ export class AgentService {
         if (!owned) id = undefined;
       }
       if (id === undefined) {
-        const title = `Analysis: ${task.replace(/\s+/g, " ").trim()}`;
+        const title = AGENT_TEXT[language].title(task.replace(/\s+/g, " ").trim());
         const created = await this.prisma.conversation.create({
           data: {
             userId,
@@ -338,7 +401,7 @@ export class AgentService {
         id = created.id;
       }
       await this.prisma.message.create({
-        data: { conversationId: id, role: MessageRole.USER, content: `Deep analysis: ${task}` },
+        data: { conversationId: id, role: MessageRole.USER, content: AGENT_TEXT[language].request(task) },
       });
       await this.prisma.message.create({
         data: {

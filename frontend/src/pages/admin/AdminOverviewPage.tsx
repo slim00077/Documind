@@ -11,6 +11,7 @@ import {
   Users,
   UserX,
 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "../../context/AuthContext";
 import { ApiError, getAdminStatsRequest, getAiMonitoringRequest } from "../../services/admin.api";
 import type { AdminStatsOverview, AiMonitoringSnapshot } from "../../types/admin";
@@ -19,27 +20,13 @@ import { SkeletonMetricCard } from "../../components/ui/Skeleton";
 import { formatFileSize } from "../../utils/formatFileSize";
 import { formatRelativeTime } from "../../utils/formatRelativeTime";
 import GlassCard from "../../components/ui/GlassCard";
-
-const ACTION_LABELS: Record<string, string> = {
-  LOGIN: "Logged in",
-  REGISTER: "Registered",
-  DOCUMENT_UPLOAD: "Uploaded a document",
-  DOCUMENT_UPDATE: "Updated a document",
-  DOCUMENT_DELETE: "Deleted a document",
-  PERMISSION_GRANT: "Granted a permission",
-  PERMISSION_UPDATE: "Updated a permission",
-  PERMISSION_REVOKE: "Revoked a permission",
-  USER_UPDATE: "Updated a user",
-  USER_DISABLE: "Disabled a user",
-  USER_ENABLE: "Enabled a user",
-  USER_DELETE: "Deleted a user",
-  USER_ROLE_CHANGE: "Changed a user's role",
-  CATEGORY_CREATE: "Created a category",
-  CATEGORY_UPDATE: "Updated a category",
-  CATEGORY_DELETE: "Deleted a category",
-};
+import { auditActionSentence } from "../../config/auditActions";
+import { DOCUMENT_STATUS_LABEL } from "../../config/documents";
+import type { DocumentStatus } from "../../types/document";
+import { formatNumber } from "../../i18n/format";
 
 export default function AdminOverviewPage() {
+  const { t } = useTranslation();
   const { token } = useAuth();
   const [stats, setStats] = useState<AdminStatsOverview | null>(null);
   const [ai, setAi] = useState<AiMonitoringSnapshot | null>(null);
@@ -60,7 +47,7 @@ export default function AdminOverviewPage() {
       setError(
         loadError instanceof ApiError
           ? loadError.message
-          : "Unable to load admin statistics right now."
+          : t("Unable to load admin statistics right now.")
       );
     } finally {
       setIsLoading(false);
@@ -77,9 +64,9 @@ export default function AdminOverviewPage() {
       <section className="page-stack">
         <div className="page-heading">
           <div>
-            <p className="section-kicker">Admin dashboard</p>
-            <h1>Overview</h1>
-            <p>Loading platform statistics...</p>
+            <p className="section-kicker">{t("Admin dashboard")}</p>
+            <h1>{t("Overview")}</h1>
+            <p>{t("Loading platform statistics...")}</p>
           </div>
         </div>
         <div className="metric-grid">
@@ -96,12 +83,12 @@ export default function AdminOverviewPage() {
       <section className="page-stack">
         <PageState
           icon={AlertTriangle}
-          title="Couldn't load admin statistics"
+          title={t("Couldn't load admin statistics")}
           message={error}
           tone="error"
           action={
             <button className="button button-secondary" type="button" onClick={() => token && void load(token)}>
-              Try again
+              {t("Try again")}
             </button>
           }
         />
@@ -113,39 +100,42 @@ export default function AdminOverviewPage() {
     <section className="page-stack">
       <div className="page-heading">
         <div>
-          <p className="section-kicker">Admin dashboard</p>
-          <h1>Platform overview</h1>
-          <p>Real-time statistics across users, documents, and the AI assistant.</p>
+          <p className="section-kicker">{t("Admin dashboard")}</p>
+          <h1>{t("Platform overview")}</h1>
+          <p>{t("Real-time statistics across users, documents, and the AI assistant.")}</p>
         </div>
         <Link className="button button-primary" to="/admin/users">
-          <Users /> Manage users
+          <Users /> {t("Manage users")}
         </Link>
       </div>
 
       <div className="metric-grid">
         <GlassCard as="article" tone="violet" className="metric-card">
           <Users />
-          <span>Total users</span>
-          <strong>{stats.users.total}</strong>
-          <small>{stats.users.newThisWeek} new in the last 7 days.</small>
+          <span>{t("Total users")}</span>
+          <strong>{formatNumber(stats.users.total)}</strong>
+          <small>{t("{{count}} new in the last 7 days.", { count: stats.users.newThisWeek })}</small>
         </GlassCard>
         <GlassCard as="article" tone="cyan" className="metric-card">
           <UserCheck />
-          <span>Active users</span>
-          <strong>{stats.users.active}</strong>
-          <small>{stats.users.students} students, {stats.users.teachers} teachers, {stats.users.admins} admin{stats.users.admins === 1 ? "" : "s"}.</small>
+          <span>{t("Active users")}</span>
+          <strong>{formatNumber(stats.users.active)}</strong>
+          <small>
+            {t("{{count}} students", { count: stats.users.students })}, {t("{{count}} teachers", { count: stats.users.teachers })},{" "}
+            {t("{{count}} admins", { count: stats.users.admins })}.
+          </small>
         </GlassCard>
         <GlassCard as="article" tone="blue" className="metric-card">
           <UserX />
-          <span>Disabled users</span>
-          <strong>{stats.users.disabled}</strong>
-          <small>Blocked from signing in.</small>
+          <span>{t("Disabled users")}</span>
+          <strong>{formatNumber(stats.users.disabled)}</strong>
+          <small>{t("Blocked from signing in.")}</small>
         </GlassCard>
         <GlassCard as="article" tone="lavender" className="metric-card">
           <FileText />
-          <span>Documents</span>
-          <strong>{stats.documents.total}</strong>
-          <small>{stats.documents.newThisWeek} uploaded this week.</small>
+          <span>{t("Documents")}</span>
+          <strong>{formatNumber(stats.documents.total)}</strong>
+          <small>{t("{{count}} uploaded this week.", { count: stats.documents.newThisWeek })}</small>
         </GlassCard>
       </div>
 
@@ -153,34 +143,38 @@ export default function AdminOverviewPage() {
         <GlassCard as="article" tone="violet" className="workspace-panel">
           <div className="panel-heading">
             <div>
-              <p className="section-kicker">Storage</p>
-              <h2>Document pipeline</h2>
+              <p className="section-kicker">{t("Storage")}</p>
+              <h2>{t("Document pipeline")}</h2>
             </div>
             <HardDrive />
           </div>
           <dl className="insights-list">
             <div>
-              <dt>Total storage used</dt>
+              <dt>{t("Total storage used")}</dt>
               <dd>{formatFileSize(stats.documents.totalStorageBytes)}</dd>
             </div>
             <div>
-              <dt>Categories</dt>
-              <dd>{stats.categories.total}</dd>
+              <dt>{t("Categories")}</dt>
+              <dd>{formatNumber(stats.categories.total)}</dd>
             </div>
             <div>
-              <dt>AI conversations</dt>
-              <dd>{stats.assistant.conversations}</dd>
+              <dt>{t("AI conversations")}</dt>
+              <dd>{formatNumber(stats.assistant.conversations)}</dd>
             </div>
             <div>
-              <dt>AI messages</dt>
-              <dd>{stats.assistant.messages}</dd>
+              <dt>{t("AI messages")}</dt>
+              <dd>{formatNumber(stats.assistant.messages)}</dd>
             </div>
           </dl>
           <div className="pipeline-summary">
             {Object.entries(stats.documents.byStatus).map(([status, count]) => (
               <div className="pipeline-stage" key={status}>
-                <span className="pipeline-stage-count">{count}</span>
-                <span>{status.charAt(0) + status.slice(1).toLowerCase()}</span>
+                <span className="pipeline-stage-count">{formatNumber(count)}</span>
+                <span>
+                  {status in DOCUMENT_STATUS_LABEL
+                    ? t(DOCUMENT_STATUS_LABEL[status as DocumentStatus])
+                    : status.charAt(0) + status.slice(1).toLowerCase()}
+                </span>
               </div>
             ))}
           </div>
@@ -189,38 +183,38 @@ export default function AdminOverviewPage() {
         <GlassCard as="article" tone="cyan" className="workspace-panel">
           <div className="panel-heading">
             <div>
-              <p className="section-kicker">AI usage</p>
-              <h2>Providers &amp; tokens</h2>
+              <p className="section-kicker">{t("AI usage")}</p>
+              <h2>{t("Providers & tokens")}</h2>
             </div>
             <Bot />
           </div>
           {ai ? (
             <>
               <dl className="insights-list">
-                <div><dt>Requests since restart</dt><dd>{ai.live.totals.requests}</dd></div>
-                <div><dt>Errors / fallbacks</dt><dd>{ai.live.totals.errors} / {ai.live.totals.fallbacks}</dd></div>
-                <div><dt>Estimated tokens (in / out)</dt><dd>{ai.live.totals.estimatedInputTokens.toLocaleString()} / {ai.live.totals.estimatedOutputTokens.toLocaleString()}</dd></div>
-                <div><dt>Assistant answers (24h / 7d)</dt><dd>{ai.persisted.assistantAnswersLast24h} / {ai.persisted.assistantAnswersLast7d}</dd></div>
+                <div><dt>{t("Requests since restart")}</dt><dd>{formatNumber(ai.live.totals.requests)}</dd></div>
+                <div><dt>{t("Errors / fallbacks")}</dt><dd>{formatNumber(ai.live.totals.errors)} / {formatNumber(ai.live.totals.fallbacks)}</dd></div>
+                <div><dt>{t("Estimated tokens (in / out)")}</dt><dd>{formatNumber(ai.live.totals.estimatedInputTokens)} / {formatNumber(ai.live.totals.estimatedOutputTokens)}</dd></div>
+                <div><dt>{t("Assistant answers (24h / 7d)")}</dt><dd>{formatNumber(ai.persisted.assistantAnswersLast24h)} / {formatNumber(ai.persisted.assistantAnswersLast7d)}</dd></div>
               </dl>
               <div className="form-actions">
-                <Link className="text-link" to="/admin/ai-monitoring">Open provider monitoring</Link>
+                <Link className="text-link" to="/admin/ai-monitoring">{t("Open provider monitoring")}</Link>
               </div>
             </>
           ) : (
-            <p className="inline-empty">AI monitoring data is unavailable right now.</p>
+            <p className="inline-empty">{t("AI monitoring data is unavailable right now.")}</p>
           )}
         </GlassCard>
 
         <article className="workspace-panel activity-panel">
           <div className="panel-heading">
             <div>
-              <p className="section-kicker">Recent activity</p>
-              <h2>Latest audit log entries</h2>
+              <p className="section-kicker">{t("Recent activity")}</p>
+              <h2>{t("Latest audit log entries")}</h2>
             </div>
             <ShieldCheck />
           </div>
           {stats.recentActivity.length === 0 ? (
-            <p>No activity recorded yet.</p>
+            <p>{t("No activity recorded yet.")}</p>
           ) : (
             <ul className="activity-feed">
               {stats.recentActivity.map((entry) => (
@@ -230,8 +224,8 @@ export default function AdminOverviewPage() {
                       <MessageSquare />
                     </span>
                     <span className="activity-feed-body">
-                      <strong>{entry.actorName ?? entry.actor?.name ?? "System"}</strong>
-                      <span>{ACTION_LABELS[entry.action] ?? entry.action}</span>
+                      <strong>{entry.actorName ?? entry.actor?.name ?? t("System")}</strong>
+                      <span>{auditActionSentence(entry.action, t)}</span>
                     </span>
                     <span className="activity-feed-time">{formatRelativeTime(entry.createdAt)}</span>
                   </span>
@@ -241,7 +235,7 @@ export default function AdminOverviewPage() {
           )}
           <div className="form-actions">
             <Link className="text-link" to="/admin/audit-logs">
-              View all audit logs
+              {t("View all audit logs")}
             </Link>
           </div>
         </article>

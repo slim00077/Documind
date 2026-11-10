@@ -1,5 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "../../prisma/prisma.service";
+import { DEFAULT_LANGUAGE, type AppLanguage } from "../../common/i18n/language";
+import { translateMessage } from "../../common/i18n/translate";
 
 export type NotificationType =
   | "DOCUMENT_SHARED"
@@ -75,8 +77,9 @@ export class NotificationsService {
     }
   }
 
-  async list(userId: number) {
-    const [items, unreadCount] = await Promise.all([
+  /** Titles and messages are stored in English and translated for the reader (names stay as written). */
+  async list(userId: number, language: AppLanguage = DEFAULT_LANGUAGE) {
+    const [rows, unreadCount] = await Promise.all([
       this.prisma.notification.findMany({
         where: { userId },
         orderBy: { createdAt: "desc" },
@@ -85,6 +88,11 @@ export class NotificationsService {
       this.prisma.notification.count({ where: { userId, readAt: null } }),
     ]);
 
+    const items = rows.map((row) => ({
+      ...row,
+      title: translateMessage(row.title, language),
+      message: translateMessage(row.message, language),
+    }));
     return { items, unreadCount };
   }
 

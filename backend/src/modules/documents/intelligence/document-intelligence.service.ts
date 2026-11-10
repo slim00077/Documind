@@ -11,6 +11,7 @@ import { DocumentStatus } from "../../../../generated/prisma/client";
 import { PrismaService } from "../../../prisma/prisma.service";
 import { LLM_PROVIDER_TOKEN, type JsonSchema, type LLMProvider } from "../../llm/llm-provider";
 import { DocumentsService } from "../documents.service";
+import { DEFAULT_LANGUAGE, type AppLanguage } from "../../../common/i18n/language";
 import {
   appearsIn,
   asInt,
@@ -19,6 +20,7 @@ import {
   asStringList,
   buildAnalysisPrompt,
   hashKey,
+  languageKey,
   samplePassages,
   type Passage,
 } from "./analysis-support";
@@ -53,9 +55,9 @@ export class DocumentIntelligenceService {
 
   // ---------------------------------------------------------------- summary
 
-  async summarize(userId: number, documentId: number, level: SummaryLevel) {
+  async summarize(userId: number, documentId: number, level: SummaryLevel, language: AppLanguage = DEFAULT_LANGUAGE) {
     const doc = await this.load(userId, documentId);
-    return this.cached(userId, "summary", hashKey(doc.fingerprint, level), async () => {
+    return this.cached(userId, "summary", hashKey(doc.fingerprint, level, ...languageKey(language)), async () => {
       const group = (chunkIndex: number) =>
         Math.min(Math.floor(chunkIndex / this.sectionSize(doc)) + 1, MAX_SECTIONS);
       const { passages, total } = samplePassages(doc.chunks, SUMMARY_CHAR_BUDGET);
@@ -68,6 +70,7 @@ export class DocumentIntelligenceService {
             `Summarise the document section by section. Passages are tagged section="1".."${sectionCount}" in reading order. ` +
               `Return exactly one entry per section that has passages, each with a short descriptive title and a 2-4 sentence summary of only that section.`,
             [{ name: doc.name, passages, group }],
+            language,
           ),
           {
             type: "object",
@@ -120,6 +123,7 @@ export class DocumentIntelligenceService {
             ? "Write a short summary of the document: 3 to 4 sentences covering its purpose and main conclusions."
             : "Write a detailed summary of the document in 3 to 6 paragraphs covering purpose, structure, key content, and conclusions. Do not add anything the passages do not support.",
           [{ name: doc.name, passages }],
+          language,
         ),
         { type: "object", properties: { summary: str }, required: ["summary"] },
         "summary",
@@ -132,9 +136,9 @@ export class DocumentIntelligenceService {
 
   // ------------------------------------------------------------- extraction
 
-  async extract(userId: number, documentId: number) {
+  async extract(userId: number, documentId: number, language: AppLanguage = DEFAULT_LANGUAGE) {
     const doc = await this.load(userId, documentId);
-    return this.cached(userId, "extraction", hashKey(doc.fingerprint), async () => {
+    return this.cached(userId, "extraction", hashKey(doc.fingerprint, ...languageKey(language)), async () => {
       const { passages, total } = samplePassages(doc.chunks, EXTRACT_CHAR_BUDGET);
       const corpus = passages.map((p) => p.text).join("\n");
       const indexes = new Set(passages.map((p) => p.chunkIndex));
@@ -144,6 +148,7 @@ export class DocumentIntelligenceService {
           "Extract key information. Copy names, dates, deadlines and numbers EXACTLY as written in the passages (same spelling and format). " +
             "For each key point give the passage index it comes from. Omit anything not present.",
           [{ name: doc.name, passages }],
+          language,
         ),
         {
           type: "object",
@@ -233,9 +238,9 @@ export class DocumentIntelligenceService {
 
   // -------------------------------------------------------------- questions
 
-  async generateQuestions(userId: number, documentId: number, count: number, mode: QuestionMode) {
+  async generateQuestions(userId: number, documentId: number, count: number, mode: QuestionMode, language: AppLanguage = DEFAULT_LANGUAGE) {
     const doc = await this.load(userId, documentId);
-    return this.cached(userId, "questions", hashKey(doc.fingerprint, count, mode), async () => {
+    return this.cached(userId, "questions", hashKey(doc.fingerprint, count, mode, ...languageKey(language)), async () => {
       const { passages, total } = samplePassages(doc.chunks, QUESTIONS_CHAR_BUDGET);
       const byIndex = new Map(passages.map((p) => [p.chunkIndex, p.text]));
 
@@ -245,6 +250,7 @@ export class DocumentIntelligenceService {
             `with answers. Every answer must be supported by the passages: give the passage index and a SHORT verbatim quote (max 200 characters) from that passage as evidence. ` +
             `Mix question types (factual, conceptual, application).`,
           [{ name: doc.name, passages }],
+          language,
         ),
         {
           type: "object",
@@ -299,12 +305,12 @@ export class DocumentIntelligenceService {
 
   // ------------------------------------------------------------- comparison
 
-  async compare(userId: number, documentIds: number[]) {
+  async compare(userId: number, documentIds: number[], language: AppLanguage = DEFAULT_LANGUAGE) {
     const ids = [...new Set(documentIds)];
     if (ids.length < 2) throw new BadRequestException("Choose at least two different documents to compare.");
 
     const docs = await Promise.all(ids.map((id) => this.load(userId, id)));
-    return this.cached(userId, "compare", hashKey(docs.map((d) => d.fingerprint)), async () => {
+    return this.cached(userId, "compare", hashKey(docs.map((d) => d.fingerprint), ...languageKey(language)), async () => {
       const budget = Math.max(MIN_COMPARE_CHARS_PER_DOC, Math.floor(COMPARE_CHAR_BUDGET / docs.length));
       const sampled = docs.map((d) => samplePassages(d.chunks, budget));
       const n = docs.length;
@@ -317,6 +323,7 @@ export class DocumentIntelligenceService {
             `(only genuine conflicts between documents, listing each side); and information that is present in some documents but missing from others. ` +
             `Be specific (names, numbers, dates). Do not guess.`,
           docs.map((d, i) => ({ name: d.name, passages: sampled[i].passages })),
+          language,
         ),
         {
           type: "object",

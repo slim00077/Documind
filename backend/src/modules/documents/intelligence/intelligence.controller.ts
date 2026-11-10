@@ -5,6 +5,7 @@ import { CurrentUser } from "../../auth/decorators/current-user.decorator";
 import { DocumentIntelligenceService } from "./document-intelligence.service";
 import { CollectionInsightsService } from "./collection-insights.service";
 import { CollectionInsightsDto, CompareManyDto, QuestionsDto, SummaryDto } from "./intelligence.dto";
+import { RequestLanguage, type AppLanguage } from "../../../common/i18n/language";
 
 // User identity always comes from the verified JWT; per-document access is
 // enforced inside the services (owner or explicit permission, never by id alone).
@@ -17,27 +18,27 @@ export class IntelligenceController {
   ) {}
 
   @Post("documents/:id/summary")
-  summary(@CurrentUser() user: AuthTokenPayload, @Param("id", ParseIntPipe) id: number, @Body() dto: SummaryDto) {
-    return this.intelligence.summarize(user.userId, id, dto.level ?? "short");
+  summary(@CurrentUser() user: AuthTokenPayload, @Param("id", ParseIntPipe) id: number, @Body() dto: SummaryDto, @RequestLanguage() language: AppLanguage) {
+    return this.intelligence.summarize(user.userId, id, dto.level ?? "short", language);
   }
 
   @Post("documents/:id/extraction")
-  extraction(@CurrentUser() user: AuthTokenPayload, @Param("id", ParseIntPipe) id: number) {
-    return this.intelligence.extract(user.userId, id);
+  extraction(@CurrentUser() user: AuthTokenPayload, @Param("id", ParseIntPipe) id: number, @RequestLanguage() language: AppLanguage) {
+    return this.intelligence.extract(user.userId, id, language);
   }
 
   @Post("documents/:id/questions")
-  questions(@CurrentUser() user: AuthTokenPayload, @Param("id", ParseIntPipe) id: number, @Body() dto: QuestionsDto) {
-    return this.intelligence.generateQuestions(user.userId, id, dto.count ?? 8, dto.mode ?? "study");
+  questions(@CurrentUser() user: AuthTokenPayload, @Param("id", ParseIntPipe) id: number, @Body() dto: QuestionsDto, @RequestLanguage() language: AppLanguage) {
+    return this.intelligence.generateQuestions(user.userId, id, dto.count ?? 8, dto.mode ?? "study", language);
   }
 
   @Post("compare")
-  compare(@CurrentUser() user: AuthTokenPayload, @Body() dto: CompareManyDto) {
-    return this.intelligence.compare(user.userId, dto.documentIds);
+  compare(@CurrentUser() user: AuthTokenPayload, @Body() dto: CompareManyDto, @RequestLanguage() language: AppLanguage) {
+    return this.intelligence.compare(user.userId, dto.documentIds, language);
   }
 
   @Post("collection")
-  collectionInsights(@CurrentUser() user: AuthTokenPayload, @Body() dto: CollectionInsightsDto) {
-    return this.collection.analyze(user.userId, dto);
+  collectionInsights(@CurrentUser() user: AuthTokenPayload, @Body() dto: CollectionInsightsDto, @RequestLanguage() language: AppLanguage) {
+    return this.collection.analyze(user.userId, dto, language);
   }
 }

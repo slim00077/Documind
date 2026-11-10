@@ -1,15 +1,18 @@
 import { useCallback, useEffect, useState } from "react";
 import { Activity, AlertTriangle, ArrowRightLeft, Cpu, RefreshCw, Zap } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "../../context/AuthContext";
 import { ApiError, getAiMonitoringRequest } from "../../services/admin.api";
 import type { AiMonitoringSnapshot, AiProviderStatus } from "../../types/admin";
 import { PageState } from "../../components/ui/PageState";
 import { formatRelativeTime } from "../../utils/formatRelativeTime";
 import GlassCard from "../../components/ui/GlassCard";
+import type { TranslationKey } from "../../i18n";
+import { formatNumber, formatPercent, formatTime } from "../../i18n/format";
 
 const REFRESH_MS = 15_000;
 
-const STATUS_LABELS: Record<AiProviderStatus, string> = {
+const STATUS_LABELS: Record<AiProviderStatus, TranslationKey> = {
   healthy: "Healthy",
   degraded: "Degraded",
   limited: "Rate-limited",
@@ -17,7 +20,7 @@ const STATUS_LABELS: Record<AiProviderStatus, string> = {
   disabled: "Not configured",
 };
 
-const EVENT_LABELS: Record<string, string> = {
+const EVENT_LABELS: Record<string, TranslationKey> = {
   success: "Success",
   failure: "Error",
   quota: "Rate limit",
@@ -25,9 +28,8 @@ const EVENT_LABELS: Record<string, string> = {
   skipped: "Skipped",
 };
 
-const formatNumber = (value: number) => value.toLocaleString();
-
 export default function AdminAiMonitoringPage() {
+  const { t } = useTranslation();
   const { token } = useAuth();
   const [data, setData] = useState<AiMonitoringSnapshot | null>(null);
   const [error, setError] = useState("");
@@ -39,11 +41,11 @@ export default function AdminAiMonitoringPage() {
       setData(await getAiMonitoringRequest(token));
       setError("");
     } catch (loadError) {
-      setError(loadError instanceof ApiError ? loadError.message : "Unable to load AI monitoring right now.");
+      setError(loadError instanceof ApiError ? loadError.message : t("Unable to load AI monitoring right now."));
     } finally {
       setIsLoading(false);
     }
-  }, [token]);
+  }, [token, t]);
 
   useEffect(() => {
     void load();
@@ -54,7 +56,7 @@ export default function AdminAiMonitoringPage() {
   if (isLoading) {
     return (
       <section className="page-stack">
-        <PageState icon={Activity} title="Loading AI monitoring..." compact />
+        <PageState icon={Activity} title={t("Loading AI monitoring...")} compact />
       </section>
     );
   }
@@ -64,12 +66,12 @@ export default function AdminAiMonitoringPage() {
       <section className="page-stack">
         <PageState
           icon={AlertTriangle}
-          title="Couldn't load AI monitoring"
+          title={t("Couldn't load AI monitoring")}
           message={error}
           tone="error"
           action={
             <button className="button button-secondary" type="button" onClick={() => void load()}>
-              Try again
+              {t("Try again")}
             </button>
           }
         />
@@ -79,53 +81,52 @@ export default function AdminAiMonitoringPage() {
 
   const { live, persisted } = data;
   const totalTokens = live.totals.estimatedInputTokens + live.totals.estimatedOutputTokens;
-  const errorRate = live.totals.requests > 0 ? Math.round((live.totals.errors / live.totals.requests) * 100) : 0;
+  const errorRate = live.totals.requests > 0 ? live.totals.errors / live.totals.requests : 0;
 
   return (
     <section className="page-stack">
       <div className="page-heading">
         <div>
-          <p className="section-kicker">Admin</p>
-          <h1>Analytics &amp; AI monitoring</h1>
-          <p>Live provider activity, errors, and fallbacks for the AI assistant, insights, and comparisons.</p>
+          <p className="section-kicker">{t("Admin")}</p>
+          <h1>{t("Analytics & AI monitoring")}</h1>
+          <p>{t("Live provider activity, errors, and fallbacks for the AI assistant, insights, and comparisons.")}</p>
         </div>
         <button className="button button-secondary" type="button" onClick={() => void load()}>
-          <RefreshCw /> Refresh
+          <RefreshCw /> {t("Refresh")}
         </button>
       </div>
 
-      {error ? <p className="auth-error">Showing the last successful data. {error}</p> : null}
+      {error ? <p className="auth-error">{t("Showing the last successful data.")} {error}</p> : null}
 
       <p className="auth-hint">
-        Provider counters are kept in memory since the backend started {formatRelativeTime(live.since)} and reset on
-        restart. Token counts are estimates (~4 characters per token), not provider billing.
+        {t("Provider counters are kept in memory since the backend started {{when}} and reset on restart. Token counts are estimates (~4 characters per token), not provider billing.", { when: formatRelativeTime(live.since) })}
       </p>
 
       <div className="metric-grid">
         <GlassCard as="article" tone="violet" className="metric-card">
           <Zap />
-          <span>Provider requests</span>
+          <span>{t("Provider requests")}</span>
           <strong>{formatNumber(live.totals.requests)}</strong>
-          <small>{formatNumber(live.totals.successes)} succeeded.</small>
+          <small>{t("{{count}} succeeded.", { count: live.totals.successes })}</small>
         </GlassCard>
         <GlassCard as="article" tone="cyan" className="metric-card">
           <AlertTriangle />
-          <span>Errors</span>
+          <span>{t("Errors")}</span>
           <strong>{formatNumber(live.totals.errors)}</strong>
-          <small>{errorRate}% of requests.</small>
+          <small>{t("{{percent}} of requests.", { percent: formatPercent(errorRate) })}</small>
         </GlassCard>
         <GlassCard as="article" tone="blue" className="metric-card">
           <ArrowRightLeft />
-          <span>Fallbacks</span>
+          <span>{t("Fallbacks")}</span>
           <strong>{formatNumber(live.totals.fallbacks)}</strong>
-          <small>Switches to another provider.</small>
+          <small>{t("Switches to another provider.")}</small>
         </GlassCard>
         <GlassCard as="article" tone="lavender" className="metric-card">
           <Cpu />
-          <span>Estimated tokens</span>
+          <span>{t("Estimated tokens")}</span>
           <strong>{formatNumber(totalTokens)}</strong>
           <small>
-            {formatNumber(live.totals.estimatedInputTokens)} in · {formatNumber(live.totals.estimatedOutputTokens)} out
+            {t("{{input}} in · {{output}} out", { input: formatNumber(live.totals.estimatedInputTokens), output: formatNumber(live.totals.estimatedOutputTokens) })}
           </small>
         </GlassCard>
       </div>
@@ -133,8 +134,8 @@ export default function AdminAiMonitoringPage() {
       <GlassCard as="article" tone="violet" className="workspace-panel">
         <div className="panel-heading">
           <div>
-            <p className="section-kicker">Fallback order</p>
-            <h2>Providers &amp; models</h2>
+            <p className="section-kicker">{t("Fallback order")}</p>
+            <h2>{t("Providers & models")}</h2>
           </div>
           <Activity />
         </div>
@@ -143,14 +144,14 @@ export default function AdminAiMonitoringPage() {
             <thead>
               <tr>
                 <th>#</th>
-                <th>Provider / model</th>
-                <th>Status</th>
-                <th>Requests</th>
-                <th>Errors</th>
-                <th>Fallbacks</th>
-                <th>Est. tokens</th>
-                <th>Avg latency</th>
-                <th>Last error</th>
+                <th>{t("Provider / model")}</th>
+                <th>{t("Status")}</th>
+                <th>{t("Requests")}</th>
+                <th>{t("Errors")}</th>
+                <th>{t("Fallbacks")}</th>
+                <th>{t("Est. tokens")}</th>
+                <th>{t("Avg latency")}</th>
+                <th>{t("Last error")}</th>
               </tr>
             </thead>
             <tbody>
@@ -162,20 +163,20 @@ export default function AdminAiMonitoringPage() {
                     <div className="admin-table-sub">{provider.model}</div>
                   </td>
                   <td>
-                    <span className={`ai-status ai-status-${provider.status}`}>{STATUS_LABELS[provider.status]}</span>
+                    <span className={`ai-status ai-status-${provider.status}`}>{t(STATUS_LABELS[provider.status])}</span>
                     {provider.cooldownUntil ? (
                       <div className="admin-table-sub">
-                        Cooling down until {new Date(provider.cooldownUntil).toLocaleTimeString()}
+                        {t("Cooling down until {{time}}", { time: formatTime(provider.cooldownUntil, { timeStyle: "medium" }) })}
                       </div>
                     ) : null}
                   </td>
                   <td>
                     {formatNumber(provider.requests)}
-                    {provider.requestLimit ? <div className="admin-table-sub">limit {formatNumber(provider.requestLimit)}</div> : null}
+                    {provider.requestLimit ? <div className="admin-table-sub">{t("limit {{limit}}", { limit: formatNumber(provider.requestLimit) })}</div> : null}
                   </td>
                   <td>
                     {formatNumber(provider.errors)}
-                    {provider.quotaHits > 0 ? <div className="admin-table-sub">{provider.quotaHits} rate-limit</div> : null}
+                    {provider.quotaHits > 0 ? <div className="admin-table-sub">{t("{{count}} rate-limit hits", { count: provider.quotaHits })}</div> : null}
                   </td>
                   <td>{formatNumber(provider.fallbacksFrom)}</td>
                   <td>{formatNumber(provider.estimatedInputTokens + provider.estimatedOutputTokens)}</td>
@@ -203,30 +204,30 @@ export default function AdminAiMonitoringPage() {
         <GlassCard as="article" tone="cyan" className="workspace-panel">
           <div className="panel-heading">
             <div>
-              <p className="section-kicker">Stored in the database</p>
-              <h2>Persistent AI usage</h2>
+              <p className="section-kicker">{t("Stored in the database")}</p>
+              <h2>{t("Persistent AI usage")}</h2>
             </div>
             <Cpu />
           </div>
           <dl className="insights-list">
             <div>
-              <dt>Assistant answers (24h)</dt>
+              <dt>{t("Assistant answers (24h)")}</dt>
               <dd>{formatNumber(persisted.assistantAnswersLast24h)}</dd>
             </div>
             <div>
-              <dt>Assistant answers (7 days)</dt>
+              <dt>{t("Assistant answers (7 days)")}</dt>
               <dd>{formatNumber(persisted.assistantAnswersLast7d)}</dd>
             </div>
             <div>
-              <dt>Assistant answers (all time)</dt>
+              <dt>{t("Assistant answers (all time)")}</dt>
               <dd>{formatNumber(persisted.assistantAnswersTotal)}</dd>
             </div>
             <div>
-              <dt>Documents with AI insights</dt>
+              <dt>{t("Documents with AI insights")}</dt>
               <dd>{formatNumber(persisted.documentsWithInsights)}</dd>
             </div>
             <div>
-              <dt>Indexed chunks</dt>
+              <dt>{t("Indexed chunks")}</dt>
               <dd>{formatNumber(persisted.indexedChunks)}</dd>
             </div>
           </dl>
@@ -235,19 +236,19 @@ export default function AdminAiMonitoringPage() {
         <article className="workspace-panel activity-panel">
           <div className="panel-heading">
             <div>
-              <p className="section-kicker">Since backend start</p>
-              <h2>Recent provider events</h2>
+              <p className="section-kicker">{t("Since backend start")}</p>
+              <h2>{t("Recent provider events")}</h2>
             </div>
             <Activity />
           </div>
           {live.recentEvents.length === 0 ? (
-            <p>No AI requests have been made since the backend started.</p>
+            <p>{t("No AI requests have been made since the backend started.")}</p>
           ) : (
             <ul className="activity-feed">
               {live.recentEvents.slice(0, 20).map((event, index) => (
                 <li key={`${event.at}-${index}`} className="activity-feed-item">
                   <span className="activity-feed-link">
-                    <span className={`ai-event ai-event-${event.type}`}>{EVENT_LABELS[event.type]}</span>
+                    <span className={`ai-event ai-event-${event.type}`}>{EVENT_LABELS[event.type] ? t(EVENT_LABELS[event.type]) : event.type}</span>
                     <span className="activity-feed-body">
                       <strong>
                         {event.providerId}

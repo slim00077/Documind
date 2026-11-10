@@ -15,6 +15,7 @@ import {
   type RetrievedChunk,
 } from "../llm/llm-provider";
 import { workspaceAccessWhere } from "../access/document-access";
+import { DEFAULT_LANGUAGE, type AppLanguage } from "../../common/i18n/language";
 
 const LLM_UNAVAILABLE_MESSAGE =
   "The assistant couldn't generate an answer right now. Please try again shortly.";
@@ -28,8 +29,15 @@ const MIN_RELEVANT_SIMILARITY = 0.2;
 const SCOPED_MIN_RELEVANT_SIMILARITY = 0.12;
 const SCOPED_FALLBACK_CHUNK_LIMIT = 3;
 
-const NO_RELEVANT_CONTEXT_MESSAGE =
-  "I couldn't find anything relevant in your documents to answer that question.";
+// Canned answers are saved in the conversation, so they are written in the asker's language.
+const NO_RELEVANT_CONTEXT_MESSAGE: Record<AppLanguage, string> = {
+  en: "I couldn't find anything relevant in your documents to answer that question.",
+  fr: "Je n’ai rien trouvé de pertinent dans vos documents pour répondre à cette question.",
+};
+const NO_RELEVANT_SCOPED_MESSAGE: Record<AppLanguage, string> = {
+  en: "I couldn't find anything relevant in this document to answer that question.",
+  fr: "Je n’ai rien trouvé de pertinent dans ce document pour répondre à cette question.",
+};
 
 // Generic follow-up phrasing ("summarize this", "explain section 4", "what
 // does it say about...") carries no document name of its own, so when one
@@ -47,6 +55,13 @@ const FOLLOW_UP_PATTERNS = [
   /\b(first|second|third|fourth|fifth|last|previous|next|other|same|former|latter)\b/i,
   /\b(it|that|those|these|them|one|ones)\b/i,
   /^\s*(and|what about|how about|why|how so)\b/i,
+  // The same cues in French. Letter-aware boundaries, since \b ignores accented letters.
+  /(?<!\p{L})(ce|cet|cette|le|du|au)\s+(document|doc|fichier|rapport|manuel|article|texte)(?!\p{L})/iu,
+  /(?<!\p{L})r[ée]sum(e|er|ez|é)(?!\p{L})/iu,
+  /(?<!\p{L})points?\s+(cl[ée]s?|principaux|importants?)(?!\p{L})/iu,
+  /(?<!\p{L})(premier|première|deuxième|second|seconde|troisième|quatrième|cinquième|dernier|dernière|précédent|précédente|suivant|suivante|autre|même)(?!\p{L})/iu,
+  /(?<!\p{L})(il|elle|ils|elles|ça|cela|ceci|celui-ci|celle-ci|ceux-ci|celles-ci|celui-là|celle-là)(?!\p{L})/iu,
+  /^\s*(et|qu['’]en est-il|et pour|pourquoi|comment ça)(?!\p{L})/iu,
 ];
 
 // Caps on conversation text fed into retrieval, so a long chat can't bloat
@@ -120,13 +135,14 @@ export class AssistantService {
     history: ConversationTurn[] = [],
     lastDocumentId: number | null = null,
     scopedDocumentId: number | null = null,
+    language: AppLanguage = DEFAULT_LANGUAGE,
   ): Promise<AssistantAnswer> {
-    const retrieval = await this.retrieve(userId, question, history, lastDocumentId, scopedDocumentId);
+    const retrieval = await this.retrieve(userId, question, history, lastDocumentId, scopedDocumentId, language);
     if ("direct" in retrieval) return retrieval.direct;
 
     let answer: string;
     try {
-      answer = await this.llmProvider.generateAnswer(question, retrieval.contextChunks, history);
+      answer = await this.llmProvider.generateAnswer(question, retrieval.contextChunks, history, { language });
     } catch (error) {
       throw this.toClientError(error);
     }
@@ -151,8 +167,9 @@ export class AssistantService {
     lastDocumentId: number | null = null,
     scopedDocumentId: number | null = null,
     signal?: AbortSignal,
+    language: AppLanguage = DEFAULT_LANGUAGE,
   ): AsyncGenerator<AssistantStreamEvent> {
-    const retrieval = await this.retrieve(userId, question, history, lastDocumentId, scopedDocumentId);
+    const retrieval = await this.retrieve(userId, question, history, lastDocumentId, scopedDocumentId, language);
 
     if ("direct" in retrieval) {
       yield { type: "delta", text: retrieval.direct.answer };
@@ -164,7 +181,7 @@ export class AssistantService {
     let answer = "";
 
     try {
-      for await (const text of this.streamFromProvider(question, retrieval.contextChunks, history, signal)) {
+      for await (const text of this.streamFromProvider(question, retrieval.contextChunks, history, signal, language)) {
         answer += text;
         yield { type: "delta", text };
       }
@@ -184,13 +201,14 @@ export class AssistantService {
     chunks: RetrievedChunk[],
     history: ConversationTurn[],
     signal?: AbortSignal,
+    language: AppLanguage = DEFAULT_LANGUAGE,
   ): AsyncGenerator<string> {
     const provider = this.llmProvider;
     if (provider.streamAnswer) {
-      return provider.streamAnswer(question, chunks, history, signal);
+      return provider.streamAnswer(question, chunks, history, signal, { language });
     }
     return (async function* () {
-      yield await provider.generateAnswer(question, chunks, history);
+      yield await provider.generateAnswer(question, chunks, history, { language });
     })();
   }
 
@@ -209,9 +227,10 @@ export class AssistantService {
     history: ConversationTurn[],
     lastDocumentId: number | null,
     scopedDocumentId: number | null,
+    language: AppLanguage,
   ): Promise<Retrieval> {
     if (scopedDocumentId !== null) {
-      return this.retrieveScoped(userId, question, history, scopedDocumentId);
+      return this.retrieveScoped(userId, question, history, scopedDocumentId, language);
     }
 
     const documents = await this.prisma.document.findMany({
@@ -272,7 +291,7 @@ export class AssistantService {
       return {
         direct: {
           question,
-          answer: NO_RELEVANT_CONTEXT_MESSAGE,
+          answer: NO_RELEVANT_CONTEXT_MESSAGE[language],
           sources: [],
           matchedDocumentId: referencedDocumentId ?? null,
         },
@@ -302,6 +321,7 @@ export class AssistantService {
     question: string,
     history: ConversationTurn[],
     documentId: number,
+    language: AppLanguage,
   ): Promise<Retrieval> {
     const searchQuery = this.buildSearchQuery(question, history);
 
@@ -328,7 +348,7 @@ export class AssistantService {
       return {
         direct: {
           question,
-          answer: "I couldn't find anything relevant in this document to answer that question.",
+          answer: NO_RELEVANT_SCOPED_MESSAGE[language],
           sources: [],
           matchedDocumentId: documentId,
         },

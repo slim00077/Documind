@@ -1,14 +1,17 @@
 import { Fragment, useEffect, useMemo, useState, type FormEvent } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { FileText, Search, Sparkles } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "../../context/AuthContext";
 import { ApiError, searchDocumentsRequest, type SearchFilters } from "../../services/documents.api";
 import { listCategoriesRequest } from "../../services/categories.api";
 import type { Category } from "../../types/category";
 import type { SearchResult } from "../../types/search";
 import { PageState } from "../ui/PageState";
+import type { TranslationKey } from "../../i18n";
+import { formatPercent } from "../../i18n/format";
 
-const FILE_TYPES = [
+const FILE_TYPES: { label: TranslationKey; value: string }[] = [
   { label: "All file types", value: "" },
   { label: "PDF", value: "application/pdf" },
   { label: "Word", value: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" },
@@ -16,7 +19,11 @@ const FILE_TYPES = [
   { label: "Text", value: "text/" },
 ];
 
-const MATCH_LABEL = { semantic: "Meaning match", keyword: "Exact keywords", hybrid: "Keywords + meaning" } as const;
+const MATCH_LABEL: Record<SearchResult["matchType"], TranslationKey> = {
+  semantic: "Meaning match",
+  keyword: "Exact keywords",
+  hybrid: "Keywords + meaning",
+};
 
 const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
@@ -35,6 +42,7 @@ function Highlighted({ text, query }: { text: string; query: string }) {
 }
 
 export default function SemanticSearchPanel() {
+  const { t } = useTranslation();
   const { token } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const initialQuery = searchParams.get("q") ?? "";
@@ -78,7 +86,7 @@ export default function SemanticSearchPanel() {
       setSearchedQuery(value.trim());
     } catch (searchError) {
       setResults(null);
-      setError(searchError instanceof ApiError ? searchError.message : "Unable to search your documents right now.");
+      setError(searchError instanceof ApiError ? searchError.message : t("Unable to search your documents right now."));
     } finally {
       setIsSearching(false);
       setHasSearched(true);
@@ -109,57 +117,57 @@ export default function SemanticSearchPanel() {
           <Search />
           <input
             type="search"
-            placeholder="Ask a question, or search exact terms, names, dates and identifiers"
-            aria-label="Hybrid search"
+            placeholder={t("Ask a question, or search exact terms, names, dates and identifiers")}
+            aria-label={t("Hybrid search")}
             value={query}
             onChange={(event) => setQuery(event.target.value)}
           />
         </label>
         <button className="button button-primary" type="submit" disabled={!query.trim() || isSearching}>
-          <Sparkles /> {isSearching ? "Searching..." : "Search"}
+          <Sparkles /> {isSearching ? t("Searching...") : t("Search")}
         </button>
       </form>
 
-      <div className="search-filters" aria-label="Search filters">
-        <select aria-label="Category" value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
-          <option value="">All categories</option>
+      <div className="search-filters" aria-label={t("Search filters")}>
+        <select aria-label={t("Category")} value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
+          <option value="">{t("All categories")}</option>
           {categories.map((category) => (
             <option key={category.id} value={category.id}>
               {category.name}
             </option>
           ))}
         </select>
-        <select aria-label="File type" value={mimeType} onChange={(e) => setMimeType(e.target.value)}>
+        <select aria-label={t("File type")} value={mimeType} onChange={(e) => setMimeType(e.target.value)}>
           {FILE_TYPES.map((type) => (
             <option key={type.value} value={type.value}>
-              {type.label}
+              {t(type.label)}
             </option>
           ))}
         </select>
         <label className="ai-muted">
-          From <input type="date" value={createdFrom} max={createdTo || undefined} onChange={(e) => setCreatedFrom(e.target.value)} />
+          {t("From")} <input type="date" value={createdFrom} max={createdTo || undefined} onChange={(e) => setCreatedFrom(e.target.value)} />
         </label>
         <label className="ai-muted">
-          To <input type="date" value={createdTo} min={createdFrom || undefined} onChange={(e) => setCreatedTo(e.target.value)} />
+          {t("To")} <input type="date" value={createdTo} min={createdFrom || undefined} onChange={(e) => setCreatedTo(e.target.value)} />
         </label>
       </div>
 
       {!hasSearched && !isSearching ? (
         <PageState
           icon={Sparkles}
-          title="Search across your document content."
-          message="Hybrid search combines exact keyword matching with AI meaning matching, so identifiers like “FR-06” and paraphrased questions both work."
+          title={t("Search across your document content.")}
+          message={t("Hybrid search combines exact keyword matching with AI meaning matching, so identifiers like “FR-06” and paraphrased questions both work.")}
           compact
         />
       ) : isSearching ? (
-        <PageState icon={Sparkles} title="Searching your documents..." compact />
+        <PageState icon={Sparkles} title={t("Searching your documents...")} compact />
       ) : error ? (
-        <PageState icon={Search} title="Search failed" message={error} tone="error" compact />
+        <PageState icon={Search} title={t("Search failed")} message={error} tone="error" compact />
       ) : results && results.length === 0 ? (
         <PageState
           icon={Search}
-          title="No matching content found."
-          message="Try a different phrase, loosen the filters, or make sure your documents have finished processing."
+          title={t("No matching content found.")}
+          message={t("Try a different phrase, loosen the filters, or make sure your documents have finished processing.")}
           compact
         />
       ) : results ? (
@@ -168,20 +176,20 @@ export default function SemanticSearchPanel() {
             <li key={result.chunkId} className="search-result-card">
               <div className="search-result-header">
                 <Link to={`/app/documents/${result.document.id}?chunk=${result.chunkIndex}`} className="search-result-doc">
-                  <FileText /> {result.document.name} · passage {result.chunkIndex + 1}
+                  <FileText /> {result.document.name} · {t("passage {{number}}", { number: result.chunkIndex + 1 })}
                 </Link>
-                <span className="search-result-similarity" title="Combined keyword + meaning relevance">
+                <span className="search-result-similarity" title={t("Combined keyword + meaning relevance")}>
                   <span className="relevance-bar" aria-hidden="true">
                     <span style={{ width: `${Math.round(result.score * 100)}%` }} />
                   </span>{" "}
-                  {Math.round(result.score * 100)}% relevant
+                  {t("{{percent}} relevant", { percent: formatPercent(result.score) })}
                 </span>
               </div>
               <p className="search-result-snippet">
                 <Highlighted text={result.content} query={searchedQuery} />
               </p>
-              <span className="ai-badge">{MATCH_LABEL[result.matchType]}</span>{" "}
-              <span className="ai-muted">meaning similarity {Math.round(result.similarity * 100)}%</span>
+              <span className="ai-badge">{t(MATCH_LABEL[result.matchType])}</span>{" "}
+              <span className="ai-muted">{t("meaning similarity {{percent}}", { percent: formatPercent(result.similarity) })}</span>
             </li>
           ))}
         </ul>

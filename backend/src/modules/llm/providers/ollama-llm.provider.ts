@@ -1,6 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import type { ConversationTurn, JsonSchema, LLMProvider, RetrievedChunk } from "../llm-provider";
+import type { AnswerOptions, ConversationTurn, JsonSchema, LLMProvider, RetrievedChunk } from "../llm-provider";
 import { parseJsonLoose } from "../structured";
 import { buildRagPrompt } from "../build-rag-prompt";
 import { LlmProviderError } from "../provider-error";
@@ -39,8 +39,9 @@ export class OllamaLlmProvider implements LLMProvider {
     question: string,
     chunks: RetrievedChunk[],
     history: ConversationTurn[] = [],
+    options: AnswerOptions = {},
   ): Promise<string> {
-    return this.generate(buildRagPrompt(question, chunks, history));
+    return this.generate(buildRagPrompt(question, chunks, history, options));
   }
 
   /** Native structured output: Ollama's `format` accepts a JSON schema. */

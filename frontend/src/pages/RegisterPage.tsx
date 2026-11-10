@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "../context/AuthContext";
 import { ApiError } from "../services/auth.api";
 import { GraduationCap } from "lucide-react";
@@ -9,6 +10,7 @@ const emailRegex =
   /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function RegisterPage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
   const { register } = useAuth();
@@ -25,15 +27,15 @@ export default function RegisterPage() {
 
   const validate = (): string | null => {
     if (!name.trim()) {
-      return "Please enter your name.";
+      return t("Please enter your name.");
     }
 
     if (!emailRegex.test(email.trim())) {
-      return "Please enter a valid email address.";
+      return t("Please enter a valid email address.");
     }
 
     if (password.length < 8) {
-      return "Password must be at least 8 characters.";
+      return t("Password must be at least 8 characters.");
     }
 
     return null;
@@ -66,9 +68,7 @@ export default function RegisterPage() {
       if (submitError instanceof ApiError) {
         setError(submitError.message);
       } else {
-        setError(
-          "Unable to create your account right now. Please try again."
-        );
+        setError(t("Unable to create your account right now. Please try again."));
       }
     } finally {
       setIsSubmitting(false);
@@ -78,17 +78,17 @@ export default function RegisterPage() {
   return (
     <AuthShell>
       <form className="auth-card" onSubmit={onSubmit} noValidate>
-        <h1 className="auth-title">Create your account</h1>
+        <h1 className="auth-title">{t("Create your account")}</h1>
         <p className="auth-hint">
-          Start organizing and understanding your documents with AI.
+          {t("Start organizing and understanding your documents with AI.")}
         </p>
         <p className="role-note">
           <GraduationCap aria-hidden="true" />
-          <span>Your account works on its own: you can join a school, university or company any time, but you never have to.</span>
+          <span>{t("Your account works on its own: you can join a school, university or company any time, but you never have to.")}</span>
         </p>
 
         <label className="auth-label" htmlFor="name">
-          Name
+          {t("Name")}
         </label>
         <input
           id="name"
@@ -104,7 +104,7 @@ export default function RegisterPage() {
         />
 
         <label className="auth-label" htmlFor="email">
-          Email
+          {t("Email")}
         </label>
         <input
           id="email"
@@ -120,7 +120,7 @@ export default function RegisterPage() {
         />
 
         <label className="auth-label" htmlFor="password">
-          Password
+          {t("Password")}
         </label>
         <div className="password-input-row">
           <input
@@ -146,11 +146,11 @@ export default function RegisterPage() {
             disabled={isSubmitting}
             aria-label={
               showPassword
-                ? "Hide password"
-                : "Show password"
+                ? t("Hide password")
+                : t("Show password")
             }
           >
-            {showPassword ? "Hide" : "Show"}
+            {showPassword ? t("Hide") : t("Show")}
           </button>
         </div>
 
@@ -166,13 +166,13 @@ export default function RegisterPage() {
           disabled={isSubmitting}
         >
           {isSubmitting
-            ? "Creating account..."
-            : "Create account"}
+            ? t("Creating account...")
+            : t("Create account")}
         </button>
 
         <p className="auth-footer">
-          Already have an account?{" "}
-          <Link to="/login">Sign in</Link>
+          {t("Already have an account?")}{" "}
+          <Link to="/login">{t("Sign in")}</Link>
         </p>
       </form>
     </AuthShell>

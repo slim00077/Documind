@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Download, History, RotateCcw, Upload } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "../../context/AuthContext";
 import {
   ApiError,
@@ -10,6 +11,7 @@ import {
 } from "../../services/documents.api";
 import type { Document, DocumentVersionsResponse } from "../../types/document";
 import { formatFileSize } from "../../utils/formatFileSize";
+import { formatDateTime } from "../../i18n/format";
 import { useToast } from "../ui/ToastProvider";
 
 type Props = {
@@ -19,6 +21,7 @@ type Props = {
 };
 
 export default function DocumentVersionsPanel({ doc, canEdit, onDocumentChanged }: Props) {
+  const { t } = useTranslation();
   const { token } = useAuth();
   const { showToast } = useToast();
   const fileInput = useRef<HTMLInputElement>(null);
@@ -31,9 +34,9 @@ export default function DocumentVersionsPanel({ doc, canEdit, onDocumentChanged 
     try {
       setData(await listVersionsRequest(token, doc.id));
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Unable to load version history.");
+      setError(err instanceof ApiError ? err.message : t("Unable to load version history."));
     }
-  }, [token, doc.id]);
+  }, [token, doc.id, t]);
 
   useEffect(() => {
     void load();
@@ -47,7 +50,7 @@ export default function DocumentVersionsPanel({ doc, canEdit, onDocumentChanged 
       await load();
       showToast(successMessage, "success");
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "That action failed. Please try again.");
+      setError(err instanceof ApiError ? err.message : t("That action failed. Please try again."));
     } finally {
       setBusy(false);
     }
@@ -55,7 +58,7 @@ export default function DocumentVersionsPanel({ doc, canEdit, onDocumentChanged 
 
   const onFileChosen = (file: File | undefined) => {
     if (!file || !token) return;
-    void run(() => uploadVersionRequest(token, doc.id, file), "New version uploaded and reprocessed.");
+    void run(() => uploadVersionRequest(token, doc.id, file), t("New version uploaded and reprocessed."));
     if (fileInput.current) fileInput.current.value = "";
   };
 
@@ -70,7 +73,7 @@ export default function DocumentVersionsPanel({ doc, canEdit, onDocumentChanged 
       link.click();
       URL.revokeObjectURL(url);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Unable to download this version.");
+      setError(err instanceof ApiError ? err.message : t("Unable to download this version."));
     }
   };
 
@@ -78,7 +81,7 @@ export default function DocumentVersionsPanel({ doc, canEdit, onDocumentChanged 
     <div className="extracted-text-section">
       <div className="panel-heading">
         <h3>
-          <History /> Version history
+          <History /> {t("Version history")}
         </h3>
         {canEdit ? (
           <>
@@ -95,7 +98,7 @@ export default function DocumentVersionsPanel({ doc, canEdit, onDocumentChanged 
               disabled={busy}
               onClick={() => fileInput.current?.click()}
             >
-              <Upload /> {busy ? "Working..." : "Upload new version"}
+              <Upload /> {busy ? t("Working...") : t("Upload new version")}
             </button>
           </>
         ) : null}
@@ -112,9 +115,9 @@ export default function DocumentVersionsPanel({ doc, canEdit, onDocumentChanged 
           {data.current ? (
             <li className="version-row">
               <div>
-                <strong>v{data.current.version} · current</strong>
+                <strong>{t("v{{version}} · current", { version: data.current.version })}</strong>
                 <span>
-                  {data.current.originalName ?? "Unnamed file"}
+                  {data.current.originalName ?? t("Unnamed file")}
                   {data.current.size !== null ? ` (${formatFileSize(data.current.size)})` : ""}
                 </span>
               </div>
@@ -125,9 +128,9 @@ export default function DocumentVersionsPanel({ doc, canEdit, onDocumentChanged 
               <div>
                 <strong>v{version.version}</strong>
                 <span>
-                  {version.originalName ?? "Unnamed file"}
+                  {version.originalName ?? t("Unnamed file")}
                   {version.size !== null ? ` (${formatFileSize(version.size)})` : ""} ·{" "}
-                  {new Date(version.createdAt).toLocaleString()}
+                  {formatDateTime(version.createdAt)}
                 </span>
               </div>
               <div className="detail-actions">
@@ -136,7 +139,7 @@ export default function DocumentVersionsPanel({ doc, canEdit, onDocumentChanged 
                   className="button button-secondary"
                   onClick={() => void onDownload(version.id, version.originalName)}
                 >
-                  <Download /> View
+                  <Download /> {t("View")}
                 </button>
                 {canEdit ? (
                   <button
@@ -147,11 +150,11 @@ export default function DocumentVersionsPanel({ doc, canEdit, onDocumentChanged 
                       token &&
                       void run(
                         () => restoreVersionRequest(token, doc.id, version.id),
-                        `Restored v${version.version}.`
+                        t("Restored v{{version}}.", { version: version.version })
                       )
                     }
                   >
-                    <RotateCcw /> Restore
+                    <RotateCcw /> {t("Restore")}
                   </button>
                 ) : null}
               </div>
@@ -160,7 +163,7 @@ export default function DocumentVersionsPanel({ doc, canEdit, onDocumentChanged 
         </ul>
       ) : (
         <p className="insights-meta">
-          {data ? "No previous versions yet. Uploading a new file keeps the old one here." : "Loading..."}
+          {data ? t("No previous versions yet. Uploading a new file keeps the old one here.") : t("Loading...")}
         </p>
       )}
     </div>

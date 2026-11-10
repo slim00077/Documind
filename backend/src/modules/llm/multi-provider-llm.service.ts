@@ -1,6 +1,6 @@
 import { HttpException, Injectable, Logger, ServiceUnavailableException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import type { ConversationTurn, JsonSchema, LLMProvider, RetrievedChunk } from "./llm-provider";
+import type { AnswerOptions, ConversationTurn, JsonSchema, LLMProvider, RetrievedChunk } from "./llm-provider";
 import { parseJsonLoose, withSchemaInstructions } from "./structured";
 import { buildRagPrompt } from "./build-rag-prompt";
 import { LlmProviderError } from "./provider-error";
@@ -144,11 +144,12 @@ export class MultiProviderLlmService implements LLMProvider {
     question: string,
     chunks: RetrievedChunk[],
     history: ConversationTurn[] = [],
+    options: AnswerOptions = {},
   ): Promise<string> {
     // Built once, purely to size an ESTIMATED input-token count for the
     // usage monitor - every concrete provider builds its own prompt
     // identically via the same buildRagPrompt call.
-    const estimatedInputTokens = estimateTokens(buildRagPrompt(question, chunks, history));
+    const estimatedInputTokens = estimateTokens(buildRagPrompt(question, chunks, history, options));
 
     let lastError: LlmProviderError | undefined;
 
@@ -164,7 +165,7 @@ export class MultiProviderLlmService implements LLMProvider {
         continue;
       }
 
-      const outcome = await this.tryProvider(id, provider, question, chunks, history, estimatedInputTokens);
+      const outcome = await this.tryProvider(id, provider, question, chunks, history, estimatedInputTokens, options);
 
       if (outcome.kind === "success") {
         return outcome.answer;
@@ -263,8 +264,9 @@ export class MultiProviderLlmService implements LLMProvider {
     chunks: RetrievedChunk[],
     history: ConversationTurn[] = [],
     signal?: AbortSignal,
+    options: AnswerOptions = {},
   ): AsyncGenerator<string> {
-    const estimatedInputTokens = estimateTokens(buildRagPrompt(question, chunks, history));
+    const estimatedInputTokens = estimateTokens(buildRagPrompt(question, chunks, history, options));
     let lastError: LlmProviderError | undefined;
 
     for (let i = 0; i < this.chain.length; i++) {
@@ -290,9 +292,9 @@ export class MultiProviderLlmService implements LLMProvider {
 
         try {
           const source = provider.streamAnswer
-            ? provider.streamAnswer(question, chunks, history, signal)
+            ? provider.streamAnswer(question, chunks, history, signal, options)
             : (async function* () {
-                yield await provider.generateAnswer(question, chunks, history);
+                yield await provider.generateAnswer(question, chunks, history, options);
               })();
 
           for await (const text of source) {
@@ -367,6 +369,7 @@ export class MultiProviderLlmService implements LLMProvider {
     chunks: RetrievedChunk[],
     history: ConversationTurn[],
     estimatedInputTokens: number,
+    options: AnswerOptions = {},
   ): Promise<{ kind: "success"; answer: string } | { kind: "failed"; error: LlmProviderError }> {
     let lastError: LlmProviderError | undefined;
 
@@ -375,7 +378,7 @@ export class MultiProviderLlmService implements LLMProvider {
       const startedAt = Date.now();
 
       try {
-        const answer = await provider.generateAnswer(question, chunks, history);
+        const answer = await provider.generateAnswer(question, chunks, history, options);
         this.usageMonitor.recordSuccess(
           id,
           provider.modelName,

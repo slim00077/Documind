@@ -1,6 +1,7 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
+import { i18nReady } from "./i18n";
 import App from "./App";
 import { AuthProvider } from "./context/AuthContext";
 import { ThemeProvider } from "./context/ThemeContext";
@@ -17,16 +18,19 @@ import { installSpotlight } from "./components/ui/InteractiveSpotlight";
 installSpotlight();
 installWorkspaceFetch();
 
-createRoot(document.getElementById("root")!).render(
-  <StrictMode>
-    <BrowserRouter>
-      <AuthProvider>
-        <ThemeProvider>
-          <WorkspaceProvider>
-            <App />
-          </WorkspaceProvider>
-        </ThemeProvider>
-      </AuthProvider>
-    </BrowserRouter>
-  </StrictMode>
+// Render once the UI language's dictionary is loaded, so French visitors never see English first.
+void i18nReady.then(() =>
+  createRoot(document.getElementById("root")!).render(
+    <StrictMode>
+      <BrowserRouter>
+        <AuthProvider>
+          <ThemeProvider>
+            <WorkspaceProvider>
+              <App />
+            </WorkspaceProvider>
+          </ThemeProvider>
+        </AuthProvider>
+      </BrowserRouter>
+    </StrictMode>
+  )
 );

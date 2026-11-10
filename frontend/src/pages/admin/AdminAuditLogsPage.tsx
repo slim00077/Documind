@@ -1,11 +1,14 @@
 import { useEffect, useState } from "react";
 import { AlertTriangle, ClipboardList } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "../../context/AuthContext";
 import { ApiError, listAuditLogsRequest } from "../../services/admin.api";
 import type { AuditLogEntry } from "../../types/admin";
 import { PageState } from "../../components/ui/PageState";
 import { formatRelativeTime } from "../../utils/formatRelativeTime";
+import { AUDIT_TARGET_TYPES, auditActionName, auditTargetLabel } from "../../config/auditActions";
 
+// The filter keeps its original platform-level actions; entries of any action are labelled.
 const ACTIONS = [
   "LOGIN",
   "REGISTER",
@@ -25,9 +28,8 @@ const ACTIONS = [
   "CATEGORY_DELETE",
 ];
 
-const TARGET_TYPES = ["User", "Document", "Category"];
-
 export default function AdminAuditLogsPage() {
+  const { t } = useTranslation();
   const { token } = useAuth();
 
   const [logs, setLogs] = useState<AuditLogEntry[]>([]);
@@ -60,7 +62,7 @@ export default function AdminAuditLogsPage() {
       setTotalPages(result.totalPages);
     } catch (loadError) {
       setError(
-        loadError instanceof ApiError ? loadError.message : "Unable to load audit logs right now."
+        loadError instanceof ApiError ? loadError.message : t("Unable to load audit logs right now.")
       );
     } finally {
       setIsLoading(false);
@@ -77,49 +79,49 @@ export default function AdminAuditLogsPage() {
     <section className="page-stack">
       <div className="page-heading">
         <div>
-          <p className="section-kicker">Admin</p>
-          <h1>System monitoring &amp; audit logs</h1>
-          <p>A record of logins, uploads, edits, deletions, and admin actions.</p>
+          <p className="section-kicker">{t("Admin")}</p>
+          <h1>{t("System monitoring & audit logs")}</h1>
+          <p>{t("A record of logins, uploads, edits, deletions, and admin actions.")}</p>
         </div>
       </div>
 
       <div className="admin-table-toolbar">
         <select
           className="auth-input filter-select"
-          aria-label="Filter by action"
+          aria-label={t("Filter by action")}
           value={actionFilter}
           onChange={(event) => {
             setPage(1);
             setActionFilter(event.target.value);
           }}
         >
-          <option value="">All actions</option>
+          <option value="">{t("All actions")}</option>
           {ACTIONS.map((action) => (
             <option key={action} value={action}>
-              {action.replaceAll("_", " ")}
+              {auditActionName(action, t)}
             </option>
           ))}
         </select>
         <select
           className="auth-input filter-select"
-          aria-label="Filter by target type"
+          aria-label={t("Filter by target type")}
           value={targetTypeFilter}
           onChange={(event) => {
             setPage(1);
             setTargetTypeFilter(event.target.value);
           }}
         >
-          <option value="">All target types</option>
-          {TARGET_TYPES.map((type) => (
-            <option key={type} value={type}>
-              {type}
+          <option value="">{t("All target types")}</option>
+          {AUDIT_TARGET_TYPES.map((type) => (
+            <option key={type.value} value={type.value}>
+              {t(type.label)}
             </option>
           ))}
         </select>
         <input
           type="date"
           className="auth-input filter-select"
-          aria-label="From date"
+          aria-label={t("From date")}
           value={fromDate}
           onChange={(event) => {
             setPage(1);
@@ -129,7 +131,7 @@ export default function AdminAuditLogsPage() {
         <input
           type="date"
           className="auth-input filter-select"
-          aria-label="To date"
+          aria-label={t("To date")}
           value={toDate}
           onChange={(event) => {
             setPage(1);
@@ -139,43 +141,43 @@ export default function AdminAuditLogsPage() {
       </div>
 
       {isLoading ? (
-        <p className="auth-hint">Loading audit logs...</p>
+        <p className="auth-hint">{t("Loading audit logs...")}</p>
       ) : error ? (
         <PageState
           icon={AlertTriangle}
-          title="Couldn't load audit logs"
+          title={t("Couldn't load audit logs")}
           message={error}
           tone="error"
           action={
             <button className="button button-secondary" type="button" onClick={() => token && void load(token)}>
-              Try again
+              {t("Try again")}
             </button>
           }
         />
       ) : logs.length === 0 ? (
-        <PageState icon={ClipboardList} title="No audit log entries match your filters." />
+        <PageState icon={ClipboardList} title={t("No audit log entries match your filters.")} />
       ) : (
         <div className="admin-table-wrap">
           <table className="admin-table">
             <thead>
               <tr>
-                <th>When</th>
-                <th>Actor</th>
-                <th>Action</th>
-                <th>Target</th>
-                <th>IP</th>
+                <th>{t("When")}</th>
+                <th>{t("Actor")}</th>
+                <th>{t("Action")}</th>
+                <th>{t("Target")}</th>
+                <th>{t("IP")}</th>
               </tr>
             </thead>
             <tbody>
               {logs.map((log) => (
                 <tr key={log.id}>
                   <td>{formatRelativeTime(log.createdAt)}</td>
-                  <td>{log.actorName ?? log.actor?.name ?? "System"}</td>
+                  <td>{log.actorName ?? log.actor?.name ?? t("System")}</td>
                   <td>
-                    <span className="audit-action-chip">{log.action.replaceAll("_", " ")}</span>
+                    <span className="audit-action-chip">{auditActionName(log.action, t)}</span>
                   </td>
                   <td>
-                    {log.targetType ? `${log.targetType} #${log.targetId ?? "-"}` : "--"}
+                    {log.targetType ? `${auditTargetLabel(log.targetType, t)} #${log.targetId ?? "-"}` : "--"}
                   </td>
                   <td>{log.ipAddress ?? "--"}</td>
                 </tr>
@@ -188,7 +190,7 @@ export default function AdminAuditLogsPage() {
       {!isLoading && !error && logs.length > 0 ? (
         <div className="pagination-bar">
           <span>
-            Showing {logs.length} of {total} entries
+            {t("Showing {{shown}} of {{count}} entries", { shown: logs.length, count: total })}
           </span>
           <div className="pagination-buttons">
             <button
@@ -197,7 +199,7 @@ export default function AdminAuditLogsPage() {
               disabled={page <= 1}
               onClick={() => setPage((previous) => Math.max(previous - 1, 1))}
             >
-              Previous
+              {t("Previous")}
             </button>
             <button
               className="button button-secondary"
@@ -205,7 +207,7 @@ export default function AdminAuditLogsPage() {
               disabled={page >= totalPages}
               onClick={() => setPage((previous) => Math.min(previous + 1, totalPages))}
             >
-              Next
+              {t("Next")}
             </button>
           </div>
         </div>

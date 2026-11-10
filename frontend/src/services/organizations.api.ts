@@ -1,4 +1,5 @@
 import { API_URL } from "../config/api";
+import i18n from "../i18n";
 
 export class OrgApiError extends Error {
   statusCode: number;
@@ -64,7 +65,7 @@ export type StudentOverview = {
 export type OrgAuditEntry = { id: number; action: string; actorName: string | null; actorEmail: string | null; targetType: string | null; targetId: number | null; metadata: Record<string, unknown> | null; createdAt: string };
 export type PlatformOrg = { id: number; name: string; slug: string; organizationType: OrganizationType; status: string; createdAt: string; groups: number; admins: number; teachers: number; students: number };
 
-const extractError = (data: { message?: string | string[] }) => (Array.isArray(data.message) ? data.message.join(" ") : data.message ?? "Request failed");
+const extractError = (data: { message?: string | string[] }) => (Array.isArray(data.message) ? data.message.join(" ") : data.message ?? i18n.t("Request failed"));
 
 async function api<T>(token: string | null, method: string, path: string, body?: unknown, form?: FormData): Promise<T> {
   const response = await fetch(`${API_URL}/api${path}`, {

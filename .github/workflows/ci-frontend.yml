@@ -39,6 +39,9 @@ jobs:
       # Fails if the number of ESLint errors goes above the recorded budget (see scripts/lint-budget.mjs).
       - name: ESLint (error budget gate)
         run: npm run lint:ci
+      # Fails on UI text that bypasses i18n, duplicate French keys or incomplete plural forms.
+      - name: Translation coverage (English / French)
+        run: npm run i18n:check
       - uses: actions/upload-artifact@v7
         if: always()
         with:

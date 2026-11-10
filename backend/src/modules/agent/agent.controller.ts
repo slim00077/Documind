@@ -5,6 +5,8 @@ import { AnalyzeDocumentsDto } from "./dto/analyze-documents.dto";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import type { AuthTokenPayload } from "../auth/guards/jwt-auth.guard";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
+import { RequestLanguage, type AppLanguage } from "../../common/i18n/language";
+import { translateMessage } from "../../common/i18n/translate";
 
 @Controller("agent")
 @UseGuards(JwtAuthGuard)
@@ -20,6 +22,7 @@ export class AgentController {
     @CurrentUser() user: AuthTokenPayload,
     @Body() dto: AnalyzeDocumentsDto,
     @Res() res: Response,
+    @RequestLanguage() language: AppLanguage,
   ) {
     const abort = new AbortController();
     res.on("close", () => {
@@ -48,14 +51,18 @@ export class AgentController {
         dto.documentIds,
         abort.signal,
         dto.conversationId,
+        language,
       )) {
         send(event.type, event);
       }
     } catch (error) {
       if (!abort.signal.aborted) {
         const status = error instanceof HttpException ? error.getStatus() : 500;
-        const message =
-          error instanceof HttpException ? error.message : "Something went wrong. Please try again.";
+        // @Res() bypasses the global exception filter, so the message is localized here.
+        const message = translateMessage(
+          error instanceof HttpException ? error.message : "Something went wrong. Please try again.",
+          language,
+        );
         if (started) {
           send("error", { message, statusCode: status });
         } else {

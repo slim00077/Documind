@@ -30,6 +30,7 @@ import type { AuthTokenPayload } from "../auth/guards/jwt-auth.guard";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import { documentFileInterceptorOptions } from "./documents-upload.config";
 import { extractIp } from "../audit-log/audit-log.service";
+import { RequestLanguage, type AppLanguage } from "../../common/i18n/language";
 
 @Controller("documents")
 @UseGuards(JwtAuthGuard)
@@ -66,11 +67,13 @@ export class DocumentsController {
   compare(
     @CurrentUser() user: AuthTokenPayload,
     @Body() dto: CompareDocumentsDto,
+    @RequestLanguage() language: AppLanguage,
   ) {
     return this.comparisonService.compare(
       user.userId,
       dto.documentIdA,
       dto.documentIdB,
+      language,
     );
   }
 
@@ -167,8 +170,9 @@ export class DocumentsController {
   generateInsights(
     @CurrentUser() user: AuthTokenPayload,
     @Param("id", ParseIntPipe) id: number,
+    @RequestLanguage() language: AppLanguage,
   ) {
-    return this.documentsService.generateInsights(user.userId, id);
+    return this.documentsService.generateInsights(user.userId, id, language);
   }
 
   @Post(":id/restore")

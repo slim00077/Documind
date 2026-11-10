@@ -1,16 +1,17 @@
 import { useState } from "react";
 import { FileText, GraduationCap, Inbox, MailPlus, UserSquare2, UsersRound } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "../../context/AuthContext";
 import { orgApi } from "../../services/organizations.api";
 import StatCard from "../../components/ui/StatCard";
 import { Panel } from "../dashboards/DashboardParts";
 import { ErrorNote, Pagination, formatDate, useAsync } from "../../components/org/OrgUi";
 import { useOrg } from "./OrgLayout";
-
-const label = (action: string) => action.toLowerCase().replace(/_/g, " ");
+import { auditActionName, auditTargetLabel } from "../../config/auditActions";
 
 /** Real, organization-scoped numbers and the organization's own audit trail. */
 export default function OrgAnalyticsPage() {
+  const { t } = useTranslation();
   const { token } = useAuth();
   const { orgId } = useOrg();
   const [page, setPage] = useState(1);
@@ -20,34 +21,34 @@ export default function OrgAnalyticsPage() {
 
   return (
     <section className="page-stack">
-      <div className="page-heading"><div><p className="section-kicker">Analytics</p><h1>Organization analytics</h1><p>Live numbers for this organization only.</p></div></div>
-      {stats.error ? <ErrorNote message={stats.error} onRetry={() => void stats.reload()} /> : !s ? <p className="auth-hint">Loading...</p> : (
+      <div className="page-heading"><div><p className="section-kicker">{t("Analytics")}</p><h1>{t("Organization analytics")}</h1><p>{t("Live numbers for this organization only.")}</p></div></div>
+      {stats.error ? <ErrorNote message={stats.error} onRetry={() => void stats.reload()} /> : !s ? <p className="auth-hint">{t("Loading...")}</p> : (
         <>
           <div className="stat-grid">
-            <StatCard icon={UserSquare2} label="Teachers" value={s.teachers} />
-            <StatCard icon={GraduationCap} label="Students" value={s.students} hint={`${s.admins} administrator${s.admins === 1 ? "" : "s"}`} />
-            <StatCard icon={UsersRound} label="Groups" value={s.groups.total} hint={`${s.groups.active} active · ${s.groups.archived} archived`} />
-            <StatCard icon={UsersRound} label="Active memberships" value={s.activeMemberships} hint={`${s.suspendedMemberships} suspended`} />
-            <StatCard icon={MailPlus} label="Pending invitations" value={s.pendingInvitations} />
-            <StatCard icon={Inbox} label="Pending requests" value={s.pendingGroupRequests + s.pendingOrgRequests} hint={`${s.pendingGroupRequests} group · ${s.pendingOrgRequests} organization`} />
-            <StatCard icon={FileText} label="Shared documents" value={s.documents.organizationShared + s.documents.groupShared} hint={`${s.documents.organizationShared} organization-wide · ${s.documents.groupShared} in groups`} />
-            <StatCard icon={FileText} label="Shared this week" value={s.documents.sharedToGroupsLast7Days} hint="New group shares, last 7 days" />
+            <StatCard icon={UserSquare2} label={t("Teachers")} value={s.teachers} />
+            <StatCard icon={GraduationCap} label={t("Students")} value={s.students} hint={t("{{count}} administrators", { count: s.admins })} />
+            <StatCard icon={UsersRound} label={t("Groups")} value={s.groups.total} hint={`${t("{{count}} active", { count: s.groups.active })} · ${t("{{count}} archived", { count: s.groups.archived })}`} />
+            <StatCard icon={UsersRound} label={t("Active memberships")} value={s.activeMemberships} hint={t("{{count}} suspended", { count: s.suspendedMemberships })} />
+            <StatCard icon={MailPlus} label={t("Pending invitations")} value={s.pendingInvitations} />
+            <StatCard icon={Inbox} label={t("Pending requests")} value={s.pendingGroupRequests + s.pendingOrgRequests} hint={t("{{groups}} group · {{organization}} organization", { groups: s.pendingGroupRequests, organization: s.pendingOrgRequests })} />
+            <StatCard icon={FileText} label={t("Shared documents")} value={s.documents.organizationShared + s.documents.groupShared} hint={t("{{organization}} organization-wide · {{groups}} in groups", { organization: s.documents.organizationShared, groups: s.documents.groupShared })} />
+            <StatCard icon={FileText} label={t("Shared this week")} value={s.documents.sharedToGroupsLast7Days} hint={t("New group shares, last 7 days")} />
           </div>
         </>
       )}
-      <Panel title="Activity history">
-        {logs.error ? <ErrorNote message={logs.error} onRetry={() => void logs.reload()} /> : !logs.data ? <p className="auth-hint">Loading...</p> : logs.data.items.length === 0 ? <p className="inline-empty">No activity recorded yet.</p> : (
+      <Panel title={t("Activity history")}>
+        {logs.error ? <ErrorNote message={logs.error} onRetry={() => void logs.reload()} /> : !logs.data ? <p className="auth-hint">{t("Loading...")}</p> : logs.data.items.length === 0 ? <p className="inline-empty">{t("No activity recorded yet.")}</p> : (
           <>
             <div className="admin-table-wrap">
               <table className="admin-table">
-                <thead><tr><th>When</th><th>Who</th><th>Action</th><th>Target</th></tr></thead>
+                <thead><tr><th>{t("When")}</th><th>{t("Who")}</th><th>{t("Action")}</th><th>{t("Target")}</th></tr></thead>
                 <tbody>
                   {logs.data.items.map((l) => (
                     <tr key={l.id}>
                       <td>{formatDate(l.createdAt)}</td>
-                      <td>{l.actorName ?? "System"}<div className="meta">{l.actorEmail}</div></td>
-                      <td><span className="audit-action-chip">{label(l.action)}</span></td>
-                      <td>{l.targetType ? `${l.targetType} #${l.targetId ?? ""}` : "-"}</td>
+                      <td>{l.actorName ?? t("System")}<div className="meta">{l.actorEmail}</div></td>
+                      <td><span className="audit-action-chip">{auditActionName(l.action, t)}</span></td>
+                      <td>{l.targetType ? `${auditTargetLabel(l.targetType, t)} #${l.targetId ?? ""}` : "-"}</td>
                     </tr>
                   ))}
                 </tbody>

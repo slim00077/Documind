@@ -1,5 +1,5 @@
 import { IsEnum, IsOptional } from "class-validator";
-import { AiResponseStyle, Theme } from "../../../../generated/prisma/client";
+import { AiResponseStyle, Language, Theme } from "../../../../generated/prisma/client";
 
 export class UpdatePreferencesDto {
   @IsOptional()
@@ -9,4 +9,9 @@ export class UpdatePreferencesDto {
   @IsOptional()
   @IsEnum(AiResponseStyle)
   aiResponseStyle?: AiResponseStyle;
+
+  /** Interface and AI answer language. */
+  @IsOptional()
+  @IsEnum(Language)
+  language?: Language;
 }

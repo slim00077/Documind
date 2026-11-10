@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Users } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "../../context/AuthContext";
 import { ApiError, listSharedDocumentsRequest, setDocumentFavoriteRequest } from "../../services/documents.api";
 import type { SharedDocument } from "../../types/document";
@@ -8,6 +9,7 @@ import { SkeletonDocumentCard } from "../ui/Skeleton";
 import DocumentCard from "./DocumentCard";
 
 export default function SharedDocumentsPanel() {
+  const { t } = useTranslation();
   const { token } = useAuth();
   const [documents, setDocuments] = useState<SharedDocument[] | null>(null);
   const [error, setError] = useState("");
@@ -17,7 +19,7 @@ export default function SharedDocumentsPanel() {
     listSharedDocumentsRequest(activeToken)
       .then(setDocuments)
       .catch((loadError) =>
-        setError(loadError instanceof ApiError ? loadError.message : "Unable to load shared documents.")
+        setError(loadError instanceof ApiError ? loadError.message : t("Unable to load shared documents."))
       );
   };
 
@@ -45,12 +47,12 @@ export default function SharedDocumentsPanel() {
     return (
       <PageState
         icon={Users}
-        title="Couldn't load shared documents"
+        title={t("Couldn't load shared documents")}
         message={error}
         tone="error"
         action={
           <button className="button button-secondary" type="button" onClick={() => token && load(token)}>
-            Try again
+            {t("Try again")}
           </button>
         }
       />
@@ -71,8 +73,8 @@ export default function SharedDocumentsPanel() {
     return (
       <PageState
         icon={Users}
-        title="Nothing has been shared with you yet."
-        message="Documents that other people or an administrator share with you will appear here."
+        title={t("Nothing has been shared with you yet.")}
+        message={t("Documents that other people or an administrator share with you will appear here.")}
       />
     );
   }

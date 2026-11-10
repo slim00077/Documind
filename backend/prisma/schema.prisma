@@ -16,6 +16,8 @@ model User {
   isActive            Boolean                   @default(true)
   theme               Theme                     @default(SYSTEM)
   aiResponseStyle     AiResponseStyle           @default(BALANCED)
+  /// Interface + AI answer language. Null until the user picks one (the browser language applies).
+  language            Language?
   documents           Document[]
   conversations       Conversation[]
   documentPermissions DocumentPermission[]
@@ -219,6 +221,11 @@ enum AiResponseStyle {
   CONCISE
   BALANCED
   DETAILED
+}
+
+enum Language {
+  EN
+  FR
 }
 
 enum DocumentRole {

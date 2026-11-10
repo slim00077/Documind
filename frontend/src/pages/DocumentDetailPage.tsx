@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { AlertTriangle, ArrowLeft, FileSearch, FileX, MessageSquare, Pencil, Trash2 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "../context/AuthContext";
 import {
   ApiError,
@@ -23,8 +24,11 @@ import ConfirmDialog from "../components/documents/ConfirmDialog";
 import { PageState } from "../components/ui/PageState";
 import { useToast } from "../components/ui/ToastProvider";
 import { formatFileSize } from "../utils/formatFileSize";
+import { formatDateTime, formatNumber } from "../i18n/format";
+import { translateStoredText } from "../i18n/serverText";
 
 export default function DocumentDetailPage() {
+  const { t } = useTranslation();
   const { id } = useParams<{ id: string }>();
   const documentId = Number(id);
   const { token } = useAuth();
@@ -79,7 +83,7 @@ export default function DocumentDetailPage() {
           setLoadError(
             error instanceof ApiError
               ? error.message
-              : "Unable to load this document right now."
+              : t("Unable to load this document right now.")
           );
         }
       } finally {
@@ -94,7 +98,7 @@ export default function DocumentDetailPage() {
     return () => {
       isActive = false;
     };
-  }, [token, documentId]);
+  }, [token, documentId, t]);
 
   // Real embedding progress for the timeline; refreshes whenever the document is reprocessed.
   const docUpdatedAt = doc?.updatedAt;
@@ -158,7 +162,7 @@ export default function DocumentDetailPage() {
     }
 
     if (!editName.trim()) {
-      setEditError("Name is required.");
+      setEditError(t("Name is required."));
       return;
     }
 
@@ -172,12 +176,12 @@ export default function DocumentDetailPage() {
       });
       setDoc(updated);
       setIsEditing(false);
-      showToast("Document updated.", "success");
+      showToast(t("Document updated."), "success");
     } catch (error) {
       setEditError(
         error instanceof ApiError
           ? error.message
-          : "Unable to save your changes right now."
+          : t("Unable to save your changes right now.")
       );
     } finally {
       setIsSaving(false);
@@ -210,7 +214,7 @@ export default function DocumentDetailPage() {
       setTextError(
         error instanceof ApiError
           ? error.message
-          : "Unable to load the extracted text right now."
+          : t("Unable to load the extracted text right now.")
       );
     } finally {
       setIsLoadingText(false);
@@ -227,13 +231,13 @@ export default function DocumentDetailPage() {
 
     try {
       await deleteDocumentRequest(token, doc.id);
-      showToast(`"${doc.name}" was moved to Trash.`, "success");
+      showToast(t("\"{{name}}\" was moved to Trash.", { name: doc.name }), "success");
       navigate("/app/documents", { replace: true });
     } catch (error) {
       setDeleteError(
         error instanceof ApiError
           ? error.message
-          : "Unable to delete this document right now."
+          : t("Unable to delete this document right now.")
       );
     } finally {
       setIsDeleting(false);
@@ -243,19 +247,19 @@ export default function DocumentDetailPage() {
   return (
     <section className="page-stack">
       <Link to="/app/documents" className="back-link">
-        <ArrowLeft /> Back to documents
+        <ArrowLeft /> {t("Back to documents")}
       </Link>
 
       {isLoading ? (
-        <PageState icon={FileSearch} title="Loading document..." compact />
+        <PageState icon={FileSearch} title={t("Loading document...")} compact />
       ) : loadError ? (
-        <PageState icon={FileX} title="Document not found" message={loadError} tone="error" compact />
+        <PageState icon={FileX} title={t("Document not found")} message={loadError} tone="error" compact />
       ) : doc ? (
         <div className="workspace-panel detail-panel">
           {isEditing ? (
             <form onSubmit={onSaveEdit} noValidate>
               <label className="auth-label" htmlFor="edit-name">
-                Name
+                {t("Name")}
               </label>
               <input
                 id="edit-name"
@@ -269,7 +273,7 @@ export default function DocumentDetailPage() {
               />
 
               <label className="auth-label" htmlFor="edit-description">
-                Description
+                {t("Description")}
               </label>
               <textarea
                 id="edit-description"
@@ -281,7 +285,7 @@ export default function DocumentDetailPage() {
               />
 
               <label className="auth-label" htmlFor="edit-category">
-                Category
+                {t("Category")}
               </label>
               <select
                 id="edit-category"
@@ -290,7 +294,7 @@ export default function DocumentDetailPage() {
                 onChange={(event) => setEditCategoryId(event.target.value)}
                 disabled={isSaving}
               >
-                <option value="">No category</option>
+                <option value="">{t("No category")}</option>
                 {categories.map((category) => (
                   <option key={category.id} value={String(category.id)}>
                     {category.name}
@@ -311,14 +315,14 @@ export default function DocumentDetailPage() {
                   onClick={() => setIsEditing(false)}
                   disabled={isSaving}
                 >
-                  Cancel
+                  {t("Cancel")}
                 </button>
                 <button
                   type="submit"
                   className="button button-primary"
                   disabled={isSaving}
                 >
-                  {isSaving ? "Saving..." : "Save changes"}
+                  {isSaving ? t("Saving...") : t("Save changes")}
                 </button>
               </div>
             </form>
@@ -332,7 +336,7 @@ export default function DocumentDetailPage() {
                 <div className="detail-actions">
                   {doc.status === "READY" || doc.status === "COMPLETED" ? (
                     <Link to={`/app/assistant?document=${doc.id}`} className="button button-primary">
-                      <MessageSquare /> Ask AI
+                      <MessageSquare /> {t("Ask AI")}
                     </Link>
                   ) : null}
                   {!doc.accessRole || doc.accessRole === "OWNER" || doc.accessRole === "EDITOR" ? (
@@ -341,7 +345,7 @@ export default function DocumentDetailPage() {
                       className="button button-secondary"
                       onClick={startEditing}
                     >
-                      <Pencil /> Edit
+                      <Pencil /> {t("Edit")}
                     </button>
                   ) : null}
                   {!doc.accessRole || doc.accessRole === "OWNER" ? (
@@ -350,13 +354,13 @@ export default function DocumentDetailPage() {
                       className="button button-danger"
                       onClick={() => setIsDeleteOpen(true)}
                     >
-                      <Trash2 /> Delete
+                      <Trash2 /> {t("Delete")}
                     </button>
                   ) : null}
                 </div>
               </div>
 
-              <p>{doc.description || "No description yet."}</p>
+              <p>{doc.description || t("No description yet.")}</p>
 
               <CitedPassage documentId={doc.id} />
 
@@ -369,44 +373,44 @@ export default function DocumentDetailPage() {
 
               <dl className="detail-meta">
                 <div>
-                  <dt>Category</dt>
-                  <dd>{doc.category?.name ?? "Uncategorized"}</dd>
+                  <dt>{t("Category")}</dt>
+                  <dd>{doc.category?.name ?? t("Uncategorized")}</dd>
                 </div>
                 <div>
-                  <dt>Created</dt>
-                  <dd>{new Date(doc.createdAt).toLocaleString()}</dd>
+                  <dt>{t("Created")}</dt>
+                  <dd>{formatDateTime(doc.createdAt)}</dd>
                 </div>
                 <div>
-                  <dt>Last updated</dt>
-                  <dd>{new Date(doc.updatedAt).toLocaleString()}</dd>
+                  <dt>{t("Last updated")}</dt>
+                  <dd>{formatDateTime(doc.updatedAt)}</dd>
                 </div>
                 <div>
-                  <dt>Original file</dt>
-                  <dd>{doc.originalName ?? "Not uploaded yet"}</dd>
+                  <dt>{t("Original file")}</dt>
+                  <dd>{doc.originalName ?? t("Not uploaded yet")}</dd>
                 </div>
                 {doc.mimeType ? (
                   <div>
-                    <dt>File type</dt>
+                    <dt>{t("File type")}</dt>
                     <dd>{doc.mimeType}</dd>
                   </div>
                 ) : null}
                 {doc.size !== null ? (
                   <div>
-                    <dt>File size</dt>
+                    <dt>{t("File size")}</dt>
                     <dd>{formatFileSize(doc.size)}</dd>
                   </div>
                 ) : null}
                 {doc.chunkCount > 0 ? (
                   <div>
-                    <dt>Chunks</dt>
-                    <dd>{doc.chunkCount}</dd>
+                    <dt>{t("Chunks")}</dt>
+                    <dd>{formatNumber(doc.chunkCount)}</dd>
                   </div>
                 ) : null}
               </dl>
 
               {doc.status === "FAILED" && doc.processingError ? (
                 <p className="processing-error" role="alert">
-                  <AlertTriangle /> {doc.processingError}
+                  <AlertTriangle /> {translateStoredText(doc.processingError, t)}
                 </p>
               ) : null}
 
@@ -440,10 +444,10 @@ export default function DocumentDetailPage() {
                   >
                     <FileSearch />
                     {isLoadingText
-                      ? "Loading text..."
+                      ? t("Loading text...")
                       : isTextVisible
-                        ? "Hide extracted text"
-                        : "View extracted text"}
+                        ? t("Hide extracted text")
+                        : t("View extracted text")}
                   </button>
 
                   {textError ? (
@@ -464,9 +468,9 @@ export default function DocumentDetailPage() {
 
       {isDeleteOpen ? (
         <ConfirmDialog
-          title="Move to Trash"
-          message="This document will be moved to Trash. You can restore it or delete it permanently from there."
-          confirmLabel="Move to Trash"
+          title={t("Move to Trash")}
+          message={t("This document will be moved to Trash. You can restore it or delete it permanently from there.")}
+          confirmLabel={t("Move to Trash")}
           isBusy={isDeleting}
           error={deleteError}
           onConfirm={onConfirmDelete}

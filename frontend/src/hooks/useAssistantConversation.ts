@@ -9,6 +9,7 @@ import {
   streamConversationMessageRequest,
 } from "../services/assistant.api";
 import type { Conversation, ConversationMessage, ConversationSummary } from "../types/assistant";
+import i18n from "../i18n";
 
 const ACTIVE_CONVERSATION_KEY = "documind-active-conversation-id";
 
@@ -61,7 +62,7 @@ export function useAssistantConversation() {
       const list = await listConversationsRequest(token);
       setConversations(list);
     } catch (err) {
-      setError(friendlyError(err, "Unable to load conversation history."));
+      setError(friendlyError(err, i18n.t("Unable to load conversation history.")));
     } finally {
       setIsLoadingList(false);
     }
@@ -79,7 +80,7 @@ export function useAssistantConversation() {
         setActiveId(id);
         writeStoredActiveId(id);
       } catch (err) {
-        setError(friendlyError(err, "Unable to open that conversation."));
+        setError(friendlyError(err, i18n.t("Unable to open that conversation.")));
         setActiveId(null);
         writeStoredActiveId(null);
         setMessages([]);
@@ -127,7 +128,7 @@ export function useAssistantConversation() {
         await refreshList();
         await loadConversation(created.id);
       } catch (err) {
-        setError(friendlyError(err, "Unable to open the assistant for that document."));
+        setError(friendlyError(err, i18n.t("Unable to open the assistant for that document.")));
         setIsLoadingConversation(false);
       }
     },
@@ -144,7 +145,7 @@ export function useAssistantConversation() {
           startNewConversation();
         }
       } catch (err) {
-        setError(friendlyError(err, "Unable to delete that conversation."));
+        setError(friendlyError(err, i18n.t("Unable to delete that conversation.")));
       }
     },
     [token, activeId, startNewConversation],
@@ -224,7 +225,7 @@ export function useAssistantConversation() {
           setError(
             friendlyError(
               err,
-              "Unable to reach the assistant right now. Please try again.",
+              i18n.t("Unable to reach the assistant right now. Please try again."),
             ),
           );
           // Reset the view to the pre-send state so the question can be

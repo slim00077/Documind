@@ -23,6 +23,7 @@ import {
   DocumentStatus,
 } from "../../../generated/prisma/client";
 import { anyAccessWhere, resolveDocumentRole, workspaceAccessWhere } from "../access/document-access";
+import { DEFAULT_LANGUAGE, type AppLanguage } from "../../common/i18n/language";
 
 const documentSelect = {
   id: true,
@@ -564,7 +565,7 @@ export class DocumentsService {
 
   // ---- Insights ---------------------------------------------------------
 
-  async generateInsights(userId: number, id: number) {
+  async generateInsights(userId: number, id: number, language: AppLanguage = DEFAULT_LANGUAGE) {
     const { document } = await this.assertCanEdit(userId, id);
 
     if (document.status !== DocumentStatus.READY) {
@@ -573,7 +574,7 @@ export class DocumentsService {
       );
     }
 
-    const insights = await this.insightsService.generate(id, document.name);
+    const insights = await this.insightsService.generate(id, document.name, language);
 
     return this.prisma.document.update({
       where: { id },

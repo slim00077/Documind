@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "../context/AuthContext";
 import { ApiError } from "../services/auth.api";
 import AuthShell from "../components/layout/AuthShell";
@@ -9,6 +10,7 @@ const emailRegex =
   /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function LoginPage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
   const { login } = useAuth();
@@ -26,11 +28,11 @@ export default function LoginPage() {
 
   const validate = (): string | null => {
     if (!emailRegex.test(email.trim())) {
-      return "Please enter a valid email address.";
+      return t("Please enter a valid email address.");
     }
 
     if (!password) {
-      return "Please enter your password.";
+      return t("Please enter your password.");
     }
 
     return null;
@@ -61,9 +63,7 @@ export default function LoginPage() {
       if (submitError instanceof ApiError) {
         setError(submitError.message);
       } else {
-        setError(
-          "Unable to sign in right now. Please try again."
-        );
+        setError(t("Unable to sign in right now. Please try again."));
       }
     } finally {
       setIsSubmitting(false);
@@ -73,13 +73,13 @@ export default function LoginPage() {
   return (
     <AuthShell>
       <form className="auth-card" onSubmit={onSubmit} noValidate>
-        <h1 className="auth-title">Welcome back</h1>
+        <h1 className="auth-title">{t("Welcome back")}</h1>
         <p className="auth-hint">
-          Sign in to continue managing your AI-powered documents.
+          {t("Sign in to continue managing your AI-powered documents.")}
         </p>
 
         <label className="auth-label" htmlFor="email">
-          Email
+          {t("Email")}
         </label>
         <input
           id="email"
@@ -95,7 +95,7 @@ export default function LoginPage() {
         />
 
         <label className="auth-label" htmlFor="password">
-          Password
+          {t("Password")}
         </label>
         <div className="password-input-row">
           <input
@@ -121,11 +121,11 @@ export default function LoginPage() {
             disabled={isSubmitting}
             aria-label={
               showPassword
-                ? "Hide password"
-                : "Show password"
+                ? t("Hide password")
+                : t("Show password")
             }
           >
-            {showPassword ? "Hide" : "Show"}
+            {showPassword ? t("Hide") : t("Show")}
           </button>
         </div>
 
@@ -140,12 +140,12 @@ export default function LoginPage() {
           type="submit"
           disabled={isSubmitting}
         >
-          {isSubmitting ? "Signing in..." : "Sign in"}
+          {isSubmitting ? t("Signing in...") : t("Sign in")}
         </button>
 
         <p className="auth-footer">
-          New to DocuMind?{" "}
-          <Link to="/register">Create an account</Link>
+          {t("New to DocuMind?")}{" "}
+          <Link to="/register">{t("Create an account")}</Link>
         </p>
       </form>
     </AuthShell>

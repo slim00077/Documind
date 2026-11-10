@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { BookOpen, FileText, GraduationCap, Lightbulb, Scale, ScanText, Search, Sparkles } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "../context/AuthContext";
 import { listDocumentsRequest } from "../services/documents.api";
 import type { Document } from "../types/document";
@@ -22,24 +23,27 @@ function PageHeading({ kicker, title, text }: { kicker: string; title: string; t
 }
 
 export function SearchPage() {
+  const { t } = useTranslation();
   return (
     <section className="page-stack">
-      <PageHeading kicker="Search" title="Search your documents" text="Hybrid keyword and semantic search across every document you can access." />
+      <PageHeading kicker={t("Search")} title={t("Search your documents")} text={t("Hybrid keyword and semantic search across every document you can access.")} />
       <SemanticSearchPanel />
     </section>
   );
 }
 
 export function ComparePage() {
+  const { t } = useTranslation();
   return (
     <section className="page-stack">
-      <PageHeading kicker="Comparison" title="Compare documents" text="Pick two documents to see what they share and where they differ." />
+      <PageHeading kicker={t("Comparison")} title={t("Compare documents")} text={t("Pick two documents to see what they share and where they differ.")} />
       <CompareDocumentsPanel />
     </section>
   );
 }
 
 export function StudyToolsPage() {
+  const { t } = useTranslation();
   const { token } = useAuth();
   const [documents, setDocuments] = useState<Document[] | null>(null);
   const [selected, setSelected] = useState<number | null>(null);
@@ -58,20 +62,20 @@ export function StudyToolsPage() {
   return (
     <section className="page-stack">
       <PageHeading
-        kicker="Study tools"
-        title="Study with your documents"
-        text="Summaries, key information and study questions with answers, generated from the document you pick."
+        kicker={t("Study tools")}
+        title={t("Study with your documents")}
+        text={t("Summaries, key information and study questions with answers, generated from the document you pick.")}
       />
       {documents === null ? null : documents.length === 0 ? (
         <PageState
           icon={BookOpen}
-          title="No processed documents yet"
-          message="Upload a document and wait for processing to finish to unlock study tools."
+          title={t("No processed documents yet")}
+          message={t("Upload a document and wait for processing to finish to unlock study tools.")}
         />
       ) : (
         <>
           <label className="auth-label" htmlFor="study-doc" style={{ margin: 0 }}>
-            Document
+            {t("Document")}
           </label>
           <select id="study-doc" className="auth-input filter-select" style={{ maxWidth: 420, width: "100%" }} value={selected ?? ""} onChange={(e) => setSelected(Number(e.target.value))}>
             {documents.map((doc) => (
@@ -92,17 +96,18 @@ export function StudyToolsPage() {
 }
 
 export function AiToolsPage() {
+  const { t } = useTranslation();
   return (
     <section className="page-stack">
-      <PageHeading kicker="AI tools" title="AI tools" text="Everything DocuMind can do with your documents, in one place." />
+      <PageHeading kicker={t("AI tools")} title={t("AI tools")} text={t("Everything DocuMind can do with your documents, in one place.")} />
       <div className="feature-grid">
-        <FeatureCard icon={Scale} title="Document comparison" text="Similarities, differences and contradictions between documents." to="/app/compare" action="Compare" />
-        <FeatureCard icon={Lightbulb} title="Collection insights" text="Recurring themes and related documents across your library." to="/app/insights" action="Analyze" />
-        <FeatureCard icon={Search} title="Semantic search" text="Find passages by meaning with citations." to="/app/search" action="Search" />
-        <FeatureCard icon={ScanText} title="Summaries & extraction" text="Open any document to summarize it and extract key information." to="/app/documents" action="Choose a document" />
-        <FeatureCard icon={GraduationCap} title="Study questions" text="Generate questions and answers for classroom or revision." to="/app/study" action="Generate" />
-        <FeatureCard icon={Sparkles} title="AI assistant" text="Ask questions across your authorized documents." to="/app/assistant" action="Ask" />
-        <FeatureCard icon={FileText} title="Document library" text="Upload and organize the documents these tools run on." to="/app/documents" action="Open library" />
+        <FeatureCard icon={Scale} title={t("Document comparison")} text={t("Similarities, differences and contradictions between documents.")} to="/app/compare" action={t("Compare")} />
+        <FeatureCard icon={Lightbulb} title={t("Collection insights")} text={t("Recurring themes and related documents across your library.")} to="/app/insights" action={t("Analyze")} />
+        <FeatureCard icon={Search} title={t("Semantic search")} text={t("Find passages by meaning with citations.")} to="/app/search" action={t("Search")} />
+        <FeatureCard icon={ScanText} title={t("Summaries & extraction")} text={t("Open any document to summarize it and extract key information.")} to="/app/documents" action={t("Choose a document")} />
+        <FeatureCard icon={GraduationCap} title={t("Study questions")} text={t("Generate questions and answers for classroom or revision.")} to="/app/study" action={t("Generate")} />
+        <FeatureCard icon={Sparkles} title={t("AI assistant")} text={t("Ask questions across your authorized documents.")} to="/app/assistant" action={t("Ask")} />
+        <FeatureCard icon={FileText} title={t("Document library")} text={t("Upload and organize the documents these tools run on.")} to="/app/documents" action={t("Open library")} />
       </div>
     </section>
   );

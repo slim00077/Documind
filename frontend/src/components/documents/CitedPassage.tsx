@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Quote, X } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "../../context/AuthContext";
 import { getDocumentChunksRequest } from "../../services/documents.api";
 
 /** Shows the passage a citation points to (?chunk=N), with its neighbours for context. */
 export default function CitedPassage({ documentId }: { documentId: number }) {
+  const { t } = useTranslation();
   const { token } = useAuth();
   const [params, setParams] = useSearchParams();
   const raw = params.get("chunk");
@@ -34,14 +36,14 @@ export default function CitedPassage({ documentId }: { documentId: number }) {
         setLoaded({
           key,
           passages: near,
-          error: near.length === 0 ? "This passage is no longer available (the document may have been reprocessed)." : "",
+          error: near.length === 0 ? t("This passage is no longer available (the document may have been reprocessed).") : "",
         });
       })
-      .catch(() => active && setLoaded({ key, passages: [], error: "Unable to load the cited passage." }));
+      .catch(() => active && setLoaded({ key, passages: [], error: t("Unable to load the cited passage.") }));
     return () => {
       active = false;
     };
-  }, [token, documentId, chunkIndex, key]);
+  }, [token, documentId, chunkIndex, key, t]);
 
   useEffect(() => {
     if (passages) ref.current?.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -50,14 +52,14 @@ export default function CitedPassage({ documentId }: { documentId: number }) {
   if (chunkIndex === null) return null;
 
   return (
-    <div className="cited-passage" ref={ref} role="region" aria-label="Cited passage">
+    <div className="cited-passage" ref={ref} role="region" aria-label={t("Cited passage")}>
       <h3 style={{ display: "flex", alignItems: "center", gap: 6 }}>
-        <Quote size={15} /> Cited passage {chunkIndex + 1}
+        <Quote size={15} /> {t("Cited passage {{number}}", { number: chunkIndex + 1 })}
         <button
           type="button"
           className="button"
           style={{ marginLeft: "auto" }}
-          aria-label="Close cited passage"
+          aria-label={t("Close cited passage")}
           onClick={() =>
             setParams((previous) => {
               const next = new URLSearchParams(previous);
@@ -70,7 +72,7 @@ export default function CitedPassage({ documentId }: { documentId: number }) {
         </button>
       </h3>
       {error ? <p role="alert">{error}</p> : null}
-      {!passages && !error ? <p className="ai-muted">Loading passage…</p> : null}
+      {!passages && !error ? <p className="ai-muted">{t("Loading passage…")}</p> : null}
       {passages?.map((chunk) => (
         <pre key={chunk.chunkIndex} className={chunk.chunkIndex === chunkIndex ? "" : "passage-context"}>
           {chunk.chunkIndex === chunkIndex ? <mark>{chunk.content}</mark> : chunk.content}

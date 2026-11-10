@@ -1,3 +1,5 @@
+import { useTranslation } from "react-i18next";
+
 type ConfirmDialogProps = {
   title: string;
   message: string;
@@ -11,12 +13,13 @@ type ConfirmDialogProps = {
 export default function ConfirmDialog({
   title,
   message,
-  confirmLabel = "Confirm",
+  confirmLabel,
   isBusy = false,
   error = "",
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
+  const { t } = useTranslation();
   return (
     <div className="modal-overlay" role="presentation" onClick={onCancel}>
       <div
@@ -40,7 +43,7 @@ export default function ConfirmDialog({
             onClick={onCancel}
             disabled={isBusy}
           >
-            Cancel
+            {t("Cancel")}
           </button>
           <button
             type="button"
@@ -48,7 +51,7 @@ export default function ConfirmDialog({
             onClick={onConfirm}
             disabled={isBusy}
           >
-            {isBusy ? "Deleting..." : confirmLabel}
+            {isBusy ? t("Deleting...") : confirmLabel ?? t("Confirm")}
           </button>
         </div>
       </div>

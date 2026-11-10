@@ -1,24 +1,43 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { BookOpenCheck, ListChecks, Loader2, ScrollText } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "../../context/AuthContext";
 import { ApiError } from "../../services/documents.api";
 import { extractionRequest, questionsRequest, summarizeRequest } from "../../services/intelligence.api";
 import type { Coverage, ExtractionResult, QuestionsResult, SummaryLevel, SummaryResult } from "../../types/intelligence";
+import type { TranslationKey } from "../../i18n";
 
 type Tab = "summary" | "extraction" | "questions";
-const TABS: { id: Tab; label: string; icon: typeof ScrollText }[] = [
+const TABS: { id: Tab; label: TranslationKey; icon: typeof ScrollText }[] = [
   { id: "summary", label: "Summaries", icon: ScrollText },
   { id: "extraction", label: "Key information", icon: ListChecks },
   { id: "questions", label: "Study questions", icon: BookOpenCheck },
 ];
 
-const Footnote = ({ coverage, cached }: { coverage: Coverage; cached: boolean }) => (
-  <p className="ai-muted">
-    AI-generated from {coverage.passagesUsed} of {coverage.totalPassages} passages
-    {cached ? " · saved result" : ""}. Verify important details in the original document.
-  </p>
-);
+/** Labels for the fixed enum values the analysis API returns (the analysed text itself is never translated). */
+const ENTITY_TYPE: Record<string, TranslationKey> = {
+  person: "person",
+  organization: "organization",
+  place: "place",
+  product: "product",
+  other: "other",
+};
+const QUESTION_TYPE: Record<string, TranslationKey> = {
+  factual: "factual",
+  conceptual: "conceptual",
+  application: "application",
+};
+
+const Footnote = ({ coverage, cached }: { coverage: Coverage; cached: boolean }) => {
+  const { t } = useTranslation();
+  return (
+    <p className="ai-muted">
+      {t("AI-generated from {{used}} of {{count}} passages", { used: coverage.passagesUsed, count: coverage.totalPassages })}
+      {cached ? ` · ${t("saved result")}` : ""}. {t("Verify important details in the original document.")}
+    </p>
+  );
+};
 
 const Chips = ({ title, items }: { title: string; items: string[] }) =>
   items.length ? (
@@ -33,6 +52,7 @@ const Chips = ({ title, items }: { title: string; items: string[] }) =>
   ) : null;
 
 export default function DocumentIntelligencePanel({ documentId, isReady }: { documentId: number; isReady: boolean }) {
+  const { t } = useTranslation();
   const { token } = useAuth();
   const [tab, setTab] = useState<Tab>("summary");
   const [level, setLevel] = useState<SummaryLevel>("short");
@@ -59,7 +79,7 @@ export default function DocumentIntelligencePanel({ documentId, isReady }: { doc
         setQuestions(await questionsRequest(token, documentId, count, mode));
       }
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Something went wrong. Please try again.");
+      setError(err instanceof ApiError ? err.message : t("Something went wrong. Please try again."));
     } finally {
       setBusy(false);
     }
@@ -67,13 +87,13 @@ export default function DocumentIntelligencePanel({ documentId, isReady }: { doc
 
   const passageLink = (n: number | null) =>
     n === null ? null : (
-      <Link to={`?chunk=${n}`} className="citation-chip" title="Show passage">
+      <Link to={`?chunk=${n}`} className="citation-chip" title={t("Show passage")}>
         {n + 1}
       </Link>
     );
 
   return (
-    <section className="ai-panel" aria-label="AI document intelligence">
+    <section className="ai-panel" aria-label={t("AI document intelligence")}>
       <div className="ai-toolbar" role="tablist">
         {TABS.map(({ id, label, icon: Icon }) => (
           <button
@@ -87,29 +107,29 @@ export default function DocumentIntelligencePanel({ documentId, isReady }: { doc
               setError("");
             }}
           >
-            <Icon /> {label}
+            <Icon /> {t(label)}
           </button>
         ))}
       </div>
 
       <div className="ai-toolbar">
         {tab === "summary" ? (
-          <select aria-label="Summary length" value={level} onChange={(e) => setLevel(e.target.value as SummaryLevel)}>
-            <option value="short">Short summary</option>
-            <option value="detailed">Detailed summary</option>
-            <option value="sections">Section by section</option>
+          <select aria-label={t("Summary length")} value={level} onChange={(e) => setLevel(e.target.value as SummaryLevel)}>
+            <option value="short">{t("Short summary")}</option>
+            <option value="detailed">{t("Detailed summary")}</option>
+            <option value="sections">{t("Section by section")}</option>
           </select>
         ) : null}
         {tab === "questions" ? (
           <>
-            <select aria-label="Question type" value={mode} onChange={(e) => setMode(e.target.value as "study" | "review")}>
-              <option value="study">Study (understanding)</option>
-              <option value="review">Review (recall)</option>
+            <select aria-label={t("Question type")} value={mode} onChange={(e) => setMode(e.target.value as "study" | "review")}>
+              <option value="study">{t("Study (understanding)")}</option>
+              <option value="review">{t("Review (recall)")}</option>
             </select>
-            <select aria-label="Number of questions" value={count} onChange={(e) => setCount(Number(e.target.value))}>
+            <select aria-label={t("Number of questions")} value={count} onChange={(e) => setCount(Number(e.target.value))}>
               {[4, 8, 12, 16].map((n) => (
                 <option key={n} value={n}>
-                  {n} questions
+                  {t("{{count}} questions", { count: n })}
                 </option>
               ))}
             </select>
@@ -118,10 +138,10 @@ export default function DocumentIntelligencePanel({ documentId, isReady }: { doc
         <button type="button" className="button button-primary" disabled={busy} onClick={() => void generate()}>
           {busy ? (
             <>
-              <Loader2 className="spin" /> Working…
+              <Loader2 className="spin" /> {t("Working…")}
             </>
           ) : (
-            "Generate"
+            t("Generate")
           )}
         </button>
       </div>
@@ -133,7 +153,7 @@ export default function DocumentIntelligencePanel({ documentId, isReady }: { doc
       ) : null}
 
       {tab === "summary" && !summary && !busy && !error ? (
-        <p className="ai-muted">Choose a length and generate a summary grounded in this document.</p>
+        <p className="ai-muted">{t("Choose a length and generate a summary grounded in this document.")}</p>
       ) : null}
       {tab === "summary" && summary ? (
         <div className="ai-card">
@@ -144,7 +164,7 @@ export default function DocumentIntelligencePanel({ documentId, isReady }: { doc
                   {s.title}{" "}
                   {s.fromPassage !== null ? (
                     <span className="ai-muted">
-                      passages {s.fromPassage + 1}–{(s.toPassage ?? s.fromPassage) + 1} {passageLink(s.fromPassage)}
+                      {t("passages {{from}}–{{to}}", { from: s.fromPassage + 1, to: (s.toPassage ?? s.fromPassage) + 1 })} {passageLink(s.fromPassage)}
                     </span>
                   ) : null}
                 </h4>
@@ -160,12 +180,12 @@ export default function DocumentIntelligencePanel({ documentId, isReady }: { doc
 
       {tab === "extraction" && !extraction && !busy && !error ? (
         <p className="ai-muted">
-          Extract key points, names, dates, numbers and topics. Names, dates and numbers are checked against the document text.
+          {t("Extract key points, names, dates, numbers and topics. Names, dates and numbers are checked against the document text.")}
         </p>
       ) : null}
       {tab === "extraction" && extraction ? (
         <div className="ai-card">
-          <h4>Key points</h4>
+          <h4>{t("Key points")}</h4>
           <ul>
             {extraction.keyPoints.map((k, i) => (
               <li key={i}>
@@ -173,17 +193,20 @@ export default function DocumentIntelligencePanel({ documentId, isReady }: { doc
               </li>
             ))}
           </ul>
-          <Chips title="People, organizations & places" items={extraction.entities.map((e) => `${e.name} (${e.type})`)} />
           <Chips
-            title="Dates & deadlines"
-            items={extraction.dates.map((d) => `${d.date}${d.isDeadline ? " (deadline)" : ""} - ${d.context}`)}
+            title={t("People, organizations & places")}
+            items={extraction.entities.map((e) => `${e.name} (${ENTITY_TYPE[e.type] ? t(ENTITY_TYPE[e.type]) : e.type})`)}
           />
-          <Chips title="Numbers & facts" items={extraction.numbers.map((n) => `${n.value} - ${n.label}`)} />
-          <Chips title="Keywords" items={extraction.keywords} />
-          <Chips title="Topics (AI-derived)" items={extraction.topics} />
+          <Chips
+            title={t("Dates & deadlines")}
+            items={extraction.dates.map((d) => `${d.date}${d.isDeadline ? ` (${t("deadline")})` : ""} - ${d.context}`)}
+          />
+          <Chips title={t("Numbers & facts")} items={extraction.numbers.map((n) => `${n.value} - ${n.label}`)} />
+          <Chips title={t("Keywords")} items={extraction.keywords} />
+          <Chips title={t("Topics (AI-derived)")} items={extraction.topics} />
           {extraction.verification.discardedUnverifiedItems > 0 ? (
             <p className="ai-muted">
-              {extraction.verification.discardedUnverifiedItems} item(s) were removed because they could not be found verbatim in the document.
+              {t("{{count}} items were removed because they could not be found verbatim in the document.", { count: extraction.verification.discardedUnverifiedItems })}
             </p>
           ) : null}
           <Footnote coverage={extraction.coverage} cached={extraction.cached} />
@@ -191,14 +214,14 @@ export default function DocumentIntelligencePanel({ documentId, isReady }: { doc
       ) : null}
 
       {tab === "questions" && !questions && !busy && !error ? (
-        <p className="ai-muted">Generate questions and answers; each answer cites a quote from the document.</p>
+        <p className="ai-muted">{t("Generate questions and answers; each answer cites a quote from the document.")}</p>
       ) : null}
       {tab === "questions" && questions ? (
         <div className="ai-card">
           <ol style={{ display: "grid", gap: 12, paddingLeft: 20, margin: 0 }}>
             {questions.questions.map((q, i) => (
               <li key={i}>
-                <strong>{q.question}</strong> <span className="ai-badge">{q.type}</span>
+                <strong>{q.question}</strong> <span className="ai-badge">{QUESTION_TYPE[q.type] ? t(QUESTION_TYPE[q.type]) : q.type}</span>
                 {revealed.has(i) ? (
                   <>
                     <p>{q.answer}</p>
@@ -209,7 +232,7 @@ export default function DocumentIntelligencePanel({ documentId, isReady }: { doc
                 ) : (
                   <div>
                     <button type="button" className="button" onClick={() => setRevealed((prev) => new Set(prev).add(i))}>
-                      Show answer
+                      {t("Show answer")}
                     </button>
                   </div>
                 )}
@@ -218,7 +241,7 @@ export default function DocumentIntelligencePanel({ documentId, isReady }: { doc
           </ol>
           {questions.verification.rejectedWithoutEvidence > 0 ? (
             <p className="ai-muted">
-              {questions.verification.rejectedWithoutEvidence} generated question(s) were dropped because their evidence quote could not be verified.
+              {t("{{count}} generated questions were dropped because their evidence quote could not be verified.", { count: questions.verification.rejectedWithoutEvidence })}
             </p>
           ) : null}
           <Footnote coverage={questions.coverage} cached={questions.cached} />

@@ -11,6 +11,7 @@ import type {
   DocumentPermissionRole,
   Paginated,
 } from "../types/admin";
+import i18n from "../i18n";
 
 export class ApiError extends Error {
   statusCode: number;
@@ -29,7 +30,7 @@ type RequestOptions = {
 };
 
 const extractErrorMessage = (data: { message?: string | string[] }): string =>
-  Array.isArray(data.message) ? data.message.join(" ") : (data.message ?? "Request failed");
+  Array.isArray(data.message) ? data.message.join(" ") : (data.message ?? i18n.t("Request failed"));
 
 const request = async <T>(path: string, options: RequestOptions): Promise<T> => {
   const response = await fetch(`${ADMIN_API_URL}${path}`, {

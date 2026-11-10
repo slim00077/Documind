@@ -1,18 +1,12 @@
+import { useTranslation } from "react-i18next";
 import type { DocumentStatus } from "../../types/document";
-
-const statusLabels: Record<DocumentStatus, string> = {
-  PENDING: "Pending",
-  UPLOADED: "Uploaded",
-  PROCESSING: "Processing",
-  READY: "Ready",
-  COMPLETED: "Completed",
-  FAILED: "Failed",
-};
+import { DOCUMENT_STATUS_LABEL as statusLabels } from "../../config/documents";
 
 export default function StatusBadge({ status }: { status: DocumentStatus }) {
+  const { t } = useTranslation();
   return (
     <span className={`status-badge status-${status.toLowerCase()}`}>
-      {statusLabels[status]}
+      {t(statusLabels[status])}
     </span>
   );
 }

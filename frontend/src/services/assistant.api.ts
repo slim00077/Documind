@@ -7,6 +7,7 @@ import type {
   ConversationMessage,
   ConversationSummary,
 } from "../types/assistant";
+import i18n from "../i18n";
 
 export class ApiError extends Error {
   statusCode: number;
@@ -21,7 +22,7 @@ export class ApiError extends Error {
 const extractErrorMessage = (data: { message?: string | string[] }): string =>
   Array.isArray(data.message)
     ? data.message.join(" ")
-    : (data.message ?? "Request failed");
+    : (data.message ?? i18n.t("Request failed"));
 
 async function request<T>(
   url: string,
@@ -152,7 +153,7 @@ export const streamConversationMessageRequest = async (
       finalMessage = data.message as ConversationMessage;
     } else if (event === "error") {
       throw new ApiError(
-        typeof data.message === "string" ? data.message : "Request failed",
+        typeof data.message === "string" ? data.message : i18n.t("Request failed"),
         data.statusCode ?? 500,
       );
     }
@@ -168,7 +169,7 @@ export const streamConversationMessageRequest = async (
   }
 
   if (!finalMessage) {
-    throw new ApiError("The response ended unexpectedly. Please try again.", 502);
+    throw new ApiError(i18n.t("The response ended unexpectedly. Please try again."), 502);
   }
   return finalMessage;
 };
@@ -218,7 +219,7 @@ export const analyzeDocumentsRequest = async (
       statusCode?: number;
     };
     if (event === "error") {
-      throw new ApiError(data.message ?? "Request failed", data.statusCode ?? 500);
+      throw new ApiError(data.message ?? i18n.t("Request failed"), data.statusCode ?? 500);
     }
     if (event === "step" || event === "delta") onEvent(data);
     if (event === "done" && data.type === "done") final = data.result;
@@ -234,7 +235,7 @@ export const analyzeDocumentsRequest = async (
   }
 
   if (!final) {
-    throw new ApiError("The analysis ended unexpectedly. Please try again.", 502);
+    throw new ApiError(i18n.t("The analysis ended unexpectedly. Please try again."), 502);
   }
   return final;
 };

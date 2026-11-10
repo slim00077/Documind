@@ -1,7 +1,9 @@
 import { Check, X } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import type { DocumentStatus } from "../../types/document";
+import type { TranslationKey } from "../../i18n";
 
-const STEPS = ["Uploaded", "Extracted", "Chunked", "Embedded", "AI Ready"];
+const STEPS: TranslationKey[] = ["Uploaded", "Extracted", "Chunked", "Embedded", "AI Ready"];
 
 type ProcessingStepsProps = {
   status: DocumentStatus;
@@ -22,6 +24,7 @@ export default function ProcessingSteps({
   chunkCount = 0,
   embeddedCount,
 }: ProcessingStepsProps) {
+  const { t } = useTranslation();
   const isReady = status === "READY" || status === "COMPLETED";
   const isFailed = status === "FAILED";
 
@@ -38,7 +41,7 @@ export default function ProcessingSteps({
   const currentIndex = done.findIndex((value) => !value);
 
   return (
-    <ol className="processing-steps" aria-label="Processing pipeline">
+    <ol className="processing-steps" aria-label={t("Processing pipeline")}>
       {STEPS.map((label, index) => {
         let stateClass = "";
         let icon = null;
@@ -58,7 +61,7 @@ export default function ProcessingSteps({
         return (
           <li key={label} className={`processing-step ${stateClass}`}>
             <span className="processing-step-dot">{icon}</span>
-            <span className="processing-step-label">{label}</span>
+            <span className="processing-step-label">{t(label)}</span>
           </li>
         );
       })}

@@ -9,6 +9,7 @@ import {
   Users,
   UserX,
 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "../../context/AuthContext";
 import {
   ApiError,
@@ -23,8 +24,10 @@ import EditUserModal from "../../components/admin/EditUserModal";
 import UserPermissionsModal from "../../components/admin/UserPermissionsModal";
 import { useToast } from "../../components/ui/ToastProvider";
 import { formatRelativeTime } from "../../utils/formatRelativeTime";
+import { formatNumber } from "../../i18n/format";
 
 export default function AdminUsersPage() {
+  const { t } = useTranslation();
   const { token, user: currentUser } = useAuth();
   const { showToast } = useToast();
 
@@ -62,7 +65,7 @@ export default function AdminUsersPage() {
       setTotalPages(result.totalPages);
     } catch (loadError) {
       setError(
-        loadError instanceof ApiError ? loadError.message : "Unable to load users right now."
+        loadError instanceof ApiError ? loadError.message : t("Unable to load users right now.")
       );
     } finally {
       setIsLoading(false);
@@ -87,10 +90,10 @@ export default function AdminUsersPage() {
     try {
       const updated = await setAdminUserStatusRequest(token, user.id, !user.isActive);
       setUsers((previous) => previous.map((item) => (item.id === user.id ? updated : item)));
-      showToast(updated.isActive ? "User enabled." : "User disabled.", "success");
+      showToast(updated.isActive ? t("User enabled.") : t("User disabled."), "success");
     } catch (toggleError) {
       showToast(
-        toggleError instanceof ApiError ? toggleError.message : "Unable to update this user right now.",
+        toggleError instanceof ApiError ? toggleError.message : t("Unable to update this user right now."),
         "error"
       );
     }
@@ -106,10 +109,10 @@ export default function AdminUsersPage() {
       await deleteAdminUserRequest(token, pendingDeleteUser.id);
       setUsers((previous) => previous.filter((item) => item.id !== pendingDeleteUser.id));
       setPendingDeleteUser(null);
-      showToast("User deleted.", "success");
+      showToast(t("User deleted."), "success");
     } catch (deleteErr) {
       setDeleteError(
-        deleteErr instanceof ApiError ? deleteErr.message : "Unable to delete this user right now."
+        deleteErr instanceof ApiError ? deleteErr.message : t("Unable to delete this user right now.")
       );
     } finally {
       setIsDeleting(false);
@@ -120,9 +123,9 @@ export default function AdminUsersPage() {
     <section className="page-stack">
       <div className="page-heading">
         <div>
-          <p className="section-kicker">Admin</p>
-          <h1>Users & permissions</h1>
-          <p>View, edit, disable, or delete users, and manage their document access.</p>
+          <p className="section-kicker">{t("Admin")}</p>
+          <h1>{t("Users & permissions")}</h1>
+          <p>{t("View, edit, disable, or delete users, and manage their document access.")}</p>
         </div>
       </div>
 
@@ -131,71 +134,71 @@ export default function AdminUsersPage() {
           <Search />
           <input
             type="search"
-            placeholder="Search by name or email"
-            aria-label="Search users"
+            placeholder={t("Search by name or email")}
+            aria-label={t("Search users")}
             value={search}
             onChange={(event) => setSearch(event.target.value)}
           />
         </label>
         <select
           className="auth-input filter-select"
-          aria-label="Filter by role"
+          aria-label={t("Filter by role")}
           value={roleFilter}
           onChange={(event) => {
             setPage(1);
             setRoleFilter(event.target.value as typeof roleFilter);
           }}
         >
-          <option value="all">All roles</option>
-          <option value="STUDENT">Student</option>
-          <option value="TEACHER">Teacher</option>
-          <option value="ADMIN">Admin</option>
+          <option value="all">{t("All roles")}</option>
+          <option value="STUDENT">{t("Student")}</option>
+          <option value="TEACHER">{t("Teacher")}</option>
+          <option value="ADMIN">{t("Admin")}</option>
         </select>
         <select
           className="auth-input filter-select"
-          aria-label="Filter by status"
+          aria-label={t("Filter by status")}
           value={statusFilter}
           onChange={(event) => {
             setPage(1);
             setStatusFilter(event.target.value as typeof statusFilter);
           }}
         >
-          <option value="all">All statuses</option>
-          <option value="active">Active</option>
-          <option value="disabled">Disabled</option>
+          <option value="all">{t("All statuses")}</option>
+          <option value="active">{t("Active")}</option>
+          <option value="disabled">{t("Disabled")}</option>
         </select>
         <button className="button button-secondary" type="submit">
-          Search
+          {t("Search")}
         </button>
       </form>
 
       {isLoading ? (
-        <p className="auth-hint">Loading users...</p>
+        <p className="auth-hint">{t("Loading users...")}</p>
       ) : error ? (
         <PageState
           icon={AlertTriangle}
-          title="Couldn't load users"
+          title={t("Couldn't load users")}
           message={error}
           tone="error"
           action={
             <button className="button button-secondary" type="button" onClick={() => token && void load(token)}>
-              Try again
+              {t("Try again")}
             </button>
           }
         />
       ) : users.length === 0 ? (
-        <PageState icon={Users} title="No users match your filters." />
+        <PageState icon={Users} title={t("No users match your filters.")} />
       ) : (
         <div className="admin-table-wrap">
           <table className="admin-table">
             <thead>
               <tr>
-                <th>Name</th>
-                <th>Email</th>
-                <th>Role</th>
-                <th>Status</th>
-                <th>Documents</th>
-                <th>Joined</th>
+                <th>{t("Name")}</th>
+                <th>{t("Email")}</th>
+                <th>{t("Role")}</th>
+                <th>{t("Status")}</th>
+                <th>{t("Documents")}</th>
+                <th>{t("Joined")}</th>
                 <th></th>
               </tr>
             </thead>
@@ -206,22 +209,22 @@ export default function AdminUsersPage() {
                   <td>{user.email}</td>
                   <td>
                     <span className={`role-chip role-${normalizeRole(user.role).toLowerCase()}`}>
-                      {ROLE_LABEL[normalizeRole(user.role)]}
+                      {t(ROLE_LABEL[normalizeRole(user.role)])}
                     </span>
                   </td>
                   <td>
                     <span className={`status-dot ${user.isActive ? "status-dot-active" : "status-dot-disabled"}`}>
-                      {user.isActive ? "Active" : "Disabled"}
+                      {user.isActive ? t("Active") : t("Disabled")}
                     </span>
                   </td>
-                  <td>{user.documentCount}</td>
+                  <td>{formatNumber(user.documentCount)}</td>
                   <td>{formatRelativeTime(user.createdAt)}</td>
                   <td>
                     <div className="admin-row-actions">
                       <button
                         className="icon-button"
                         type="button"
-                        aria-label="Edit user"
+                        aria-label={t("Edit user")}
                         onClick={() => setEditingUser(user)}
                       >
                         <Pencil />
@@ -229,7 +232,7 @@ export default function AdminUsersPage() {
                       <button
                         className="icon-button"
                         type="button"
-                        aria-label="Manage permissions"
+                        aria-label={t("Manage permissions")}
                         onClick={() => setPermissionsUser(user)}
                       >
                         <ShieldCheck />
@@ -237,7 +240,7 @@ export default function AdminUsersPage() {
                       <button
                         className="icon-button"
                         type="button"
-                        aria-label={user.isActive ? "Disable user" : "Enable user"}
+                        aria-label={user.isActive ? t("Disable user") : t("Enable user")}
                         onClick={() => onToggleStatus(user)}
                         disabled={user.id === currentUser?.id && user.isActive}
                       >
@@ -246,7 +249,7 @@ export default function AdminUsersPage() {
                       <button
                         className="icon-button"
                         type="button"
-                        aria-label="Delete user"
+                        aria-label={t("Delete user")}
                         onClick={() => setPendingDeleteUser(user)}
                         disabled={user.id === currentUser?.id}
                       >
@@ -264,7 +267,7 @@ export default function AdminUsersPage() {
       {!isLoading && !error && users.length > 0 ? (
         <div className="pagination-bar">
           <span>
-            Showing {users.length} of {total} users
+            {t("Showing {{shown}} of {{count}} users", { shown: users.length, count: total })}
           </span>
           <div className="pagination-buttons">
             <button
@@ -273,7 +276,7 @@ export default function AdminUsersPage() {
               disabled={page <= 1}
               onClick={() => setPage((previous) => Math.max(previous - 1, 1))}
             >
-              Previous
+              {t("Previous")}
             </button>
             <button
               className="button button-secondary"
@@ -281,7 +284,7 @@ export default function AdminUsersPage() {
               disabled={page >= totalPages}
               onClick={() => setPage((previous) => Math.min(previous + 1, totalPages))}
             >
-              Next
+              {t("Next")}
             </button>
           </div>
         </div>
@@ -303,9 +306,9 @@ export default function AdminUsersPage() {
 
       {pendingDeleteUser ? (
         <ConfirmDialog
-          title="Delete user"
-          message={`This will permanently delete ${pendingDeleteUser.name} and all of their documents. This action cannot be undone.`}
-          confirmLabel="Delete"
+          title={t("Delete user")}
+          message={t("This will permanently delete {{name}} and all of their documents. This action cannot be undone.", { name: pendingDeleteUser.name })}
+          confirmLabel={t("Delete")}
           isBusy={isDeleting}
           error={deleteError}
           onConfirm={onConfirmDelete}

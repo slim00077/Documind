@@ -81,7 +81,15 @@ export class JwtAuthGuard implements CanActivate {
         where: { organizationId, userId: user.id, status: "ACTIVE", organization: { status: "ACTIVE" } },
         select: { id: true },
       });
-      if (!membership) throw new ForbiddenException("You are not an active member of this organization");
+      // The stable `code` lets the web client react to a lost membership whatever the message language.
+      if (!membership) {
+        throw new ForbiddenException({
+          statusCode: 403,
+          message: "You are not an active member of this organization",
+          error: "Forbidden",
+          code: "WORKSPACE_MEMBERSHIP_INACTIVE",
+        });
+      }
     }
     enterWorkspace({ userId: user.id, organizationId });
 

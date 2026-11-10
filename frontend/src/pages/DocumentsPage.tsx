@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { FileText, FolderTree, Plus, Search, Star, Trash2, Users } from "lucide-react";
+import { Trans, useTranslation } from "react-i18next";
 import { useAuth } from "../context/AuthContext";
 import {
   ApiError,
@@ -22,11 +23,13 @@ import { PageState } from "../components/ui/PageState";
 import { SkeletonDocumentCard } from "../components/ui/Skeleton";
 import { useToast } from "../components/ui/ToastProvider";
 import { formatFileSize } from "../utils/formatFileSize";
+import { DOCUMENT_STATUS_LABEL } from "../config/documents";
+import { intlLocale, type TranslationKey } from "../i18n";
 
 type SortOption = "newest" | "oldest" | "name-asc" | "name-desc" | "largest";
 type Tab = "library" | "shared" | "categories" | "trash";
 
-const TABS: { key: Tab; label: string; icon: typeof FileText }[] = [
+const TABS: { key: Tab; label: TranslationKey; icon: typeof FileText }[] = [
   { key: "library", label: "Library", icon: FileText },
   { key: "shared", label: "Shared with me", icon: Users },
   { key: "categories", label: "Categories", icon: FolderTree },
@@ -43,6 +46,7 @@ const STATUS_OPTIONS: DocumentStatus[] = [
 ];
 
 export default function DocumentsPage() {
+  const { t } = useTranslation();
   const { token } = useAuth();
   const { showToast } = useToast();
   const { current: orgWorkspace } = useWorkspace();
@@ -94,7 +98,7 @@ export default function DocumentsPage() {
       setLoadError(
         error instanceof ApiError
           ? error.message
-          : "Unable to load your documents right now."
+          : t("Unable to load your documents right now.")
       );
     } finally {
       setIsLoading(false);
@@ -123,7 +127,7 @@ export default function DocumentsPage() {
       })
       .catch(() => {
         if (isActive) {
-          showToast("Unable to load categories right now.", "error");
+          showToast(t("Unable to load categories right now."), "error");
         }
       });
 
@@ -158,9 +162,9 @@ export default function DocumentsPage() {
         case "oldest":
           return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
         case "name-asc":
-          return a.name.localeCompare(b.name);
+          return a.name.localeCompare(b.name, intlLocale());
         case "name-desc":
-          return b.name.localeCompare(a.name);
+          return b.name.localeCompare(a.name, intlLocale());
         case "largest":
           return (b.size ?? 0) - (a.size ?? 0);
         case "newest":
@@ -183,7 +187,7 @@ export default function DocumentsPage() {
   const onCreated = (document: Document) => {
     setDocuments((previous) => [document, ...previous]);
     setIsCreateOpen(false);
-    showToast(`"${document.name}" was added to your library.`, "success");
+    showToast(t("\"{{name}}\" was added to your library.", { name: document.name }), "success");
   };
 
   const onToggleFavorite = async (document: Document) => {
@@ -198,7 +202,7 @@ export default function DocumentsPage() {
       await setDocumentFavoriteRequest(token, document.id, next);
     } catch (error) {
       apply(!next);
-      showToast(error instanceof ApiError ? error.message : "Unable to update favorites right now.", "error");
+      showToast(error instanceof ApiError ? error.message : t("Unable to update favorites right now."), "error");
     }
   };
 
@@ -214,10 +218,10 @@ export default function DocumentsPage() {
       await deleteDocumentRequest(token, pendingDeleteId);
       setDocuments((previous) => previous.filter((document) => document.id !== pendingDeleteId));
       setPendingDeleteId(null);
-      showToast("Document moved to Trash.", "success");
+      showToast(t("Document moved to Trash."), "success");
     } catch (error) {
       setDeleteError(
-        error instanceof ApiError ? error.message : "Unable to delete this document right now."
+        error instanceof ApiError ? error.message : t("Unable to delete this document right now.")
       );
     } finally {
       setIsDeleting(false);
@@ -228,13 +232,13 @@ export default function DocumentsPage() {
     <section className="page-stack">
       <div className="page-heading">
         <div>
-          <p className="section-kicker">Document workspace</p>
-          <h1>Documents</h1>
-          <p>Bring every file into one organized, searchable workspace.</p>
+          <p className="section-kicker">{t("Document workspace")}</p>
+          <h1>{t("Documents")}</h1>
+          <p>{t("Bring every file into one organized, searchable workspace.")}</p>
         </div>
         {tab === "library" ? (
           <button className="button button-primary" type="button" onClick={() => setIsCreateOpen(true)}>
-            <Plus /> New document
+            <Plus /> {t("New document")}
           </button>
         ) : null}
       </div>
@@ -242,13 +246,16 @@ export default function DocumentsPage() {
       {orgWorkspace ? (
         <p className="role-note">
           <span>
-            You are in the <strong>{orgWorkspace.organization.name}</strong> workspace. These are the documents shared there; the AI assistant and search stay inside this organization.
-            Your personal library is untouched: switch to Personal to see or upload your own files.
+            <Trans
+              i18nKey="You are in the <b>{{name}}</b> workspace. These are the documents shared there; the AI assistant and search stay inside this organization. Your personal library is untouched: switch to Personal to see or upload your own files."
+              values={{ name: orgWorkspace.organization.name }}
+              components={{ b: <strong /> }}
+            />
           </span>
         </p>
       ) : null}
 
-      <div className="tab-strip" role="tablist" aria-label="Documents view">
+      <div className="tab-strip" role="tablist" aria-label={t("Documents view")}>
         {TABS.map(({ key, label, icon: Icon }) => (
           <button
             key={key}
@@ -258,7 +265,7 @@ export default function DocumentsPage() {
             className={`tab-strip-item ${tab === key ? "active" : ""}`}
             onClick={() => setTab(key)}
           >
-            <Icon /> {label}
+            <Icon /> {t(label)}
             {key === "categories" && categories.length > 0 ? (
               <span className="tab-strip-count">{categories.length}</span>
             ) : null}
@@ -295,8 +302,8 @@ export default function DocumentsPage() {
               <Search />
               <input
                 type="search"
-                placeholder="Search by name, description, or file"
-                aria-label="Search documents"
+                placeholder={t("Search by name, description, or file")}
+                aria-label={t("Search documents")}
                 value={searchTerm}
                 onChange={(event) => setSearchTerm(event.target.value)}
               />
@@ -304,12 +311,12 @@ export default function DocumentsPage() {
 
             <select
               className="auth-input filter-select"
-              aria-label="Filter by category"
+              aria-label={t("Filter by category")}
               value={categoryFilter}
               onChange={(event) => setCategoryFilter(event.target.value)}
             >
-              <option value="all">All categories</option>
-              <option value="none">Uncategorized</option>
+              <option value="all">{t("All categories")}</option>
+              <option value="none">{t("Uncategorized")}</option>
               {categories.map((category) => (
                 <option key={category.id} value={String(category.id)}>
                   {category.name}
@@ -319,14 +326,14 @@ export default function DocumentsPage() {
 
             <select
               className="auth-input filter-select"
-              aria-label="Filter by status"
+              aria-label={t("Filter by status")}
               value={statusFilter}
               onChange={(event) => setStatusFilter(event.target.value)}
             >
-              <option value="all">All statuses</option>
+              <option value="all">{t("All statuses")}</option>
               {STATUS_OPTIONS.map((status) => (
                 <option key={status} value={status}>
-                  {status.charAt(0) + status.slice(1).toLowerCase()}
+                  {t(DOCUMENT_STATUS_LABEL[status])}
                 </option>
               ))}
             </select>
@@ -337,28 +344,28 @@ export default function DocumentsPage() {
               aria-pressed={favoritesOnly}
               onClick={() => setFavoritesOnly((previous) => !previous)}
             >
-              <Star /> Favorites
+              <Star /> {t("Favorites")}
             </button>
 
             <select
               className="auth-input filter-select"
-              aria-label="Sort documents"
+              aria-label={t("Sort documents")}
               value={sortBy}
               onChange={(event) => setSortBy(event.target.value as SortOption)}
             >
-              <option value="newest">Newest first</option>
-              <option value="oldest">Oldest first</option>
-              <option value="name-asc">Name A-Z</option>
-              <option value="name-desc">Name Z-A</option>
-              <option value="largest">Largest file</option>
+              <option value="newest">{t("Newest first")}</option>
+              <option value="oldest">{t("Oldest first")}</option>
+              <option value="name-asc">{t("Name A-Z")}</option>
+              <option value="name-desc">{t("Name Z-A")}</option>
+              <option value="largest">{t("Largest file")}</option>
             </select>
           </div>
 
           {!isLoading && !loadError ? (
             <p className="documents-summary">
-              {documents.length} document{documents.length === 1 ? "" : "s"} &middot;{" "}
-              {categories.length} categor{categories.length === 1 ? "y" : "ies"} &middot;{" "}
-              {formatFileSize(totalSize)} used
+              {t("{{count}} documents", { count: documents.length })} &middot;{" "}
+              {t("{{count}} categories", { count: categories.length })} &middot;{" "}
+              {t("{{size}} used", { size: formatFileSize(totalSize) })}
             </p>
           ) : null}
 
@@ -371,12 +378,12 @@ export default function DocumentsPage() {
           ) : loadError ? (
             <PageState
               icon={FileText}
-              title="Couldn't load your documents"
+              title={t("Couldn't load your documents")}
               message={loadError}
               tone="error"
               action={
                 <button className="button button-secondary" type="button" onClick={() => token && void loadDocuments(token)}>
-                  Try again
+                  {t("Try again")}
                 </button>
               }
             />
@@ -384,19 +391,19 @@ export default function DocumentsPage() {
             documents.length === 0 ? (
               <PageState
                 icon={FileText}
-                title="Your documents will appear here."
-                message="Upload your first document to start building your workspace."
+                title={t("Your documents will appear here.")}
+                message={t("Upload your first document to start building your workspace.")}
                 action={
                   <button className="button button-primary" type="button" onClick={() => setIsCreateOpen(true)}>
-                    <Plus /> New document
+                    <Plus /> {t("New document")}
                   </button>
                 }
               />
             ) : (
               <PageState
                 icon={FileText}
-                title="No documents match your filters."
-                message="Try a different search term or clear your filters."
+                title={t("No documents match your filters.")}
+                message={t("Try a different search term or clear your filters.")}
                 action={
                   hasActiveFilters ? (
                     <button
@@ -409,7 +416,7 @@ export default function DocumentsPage() {
                         setFavoritesOnly(false);
                       }}
                     >
-                      Clear filters
+                      {t("Clear filters")}
                     </button>
                   ) : undefined
                 }
@@ -441,9 +448,9 @@ export default function DocumentsPage() {
 
       {pendingDeleteId !== null ? (
         <ConfirmDialog
-          title="Move to Trash"
-          message="This document will be moved to Trash. You can restore it or delete it permanently from there."
-          confirmLabel="Move to Trash"
+          title={t("Move to Trash")}
+          message={t("This document will be moved to Trash. You can restore it or delete it permanently from there.")}
+          confirmLabel={t("Move to Trash")}
           isBusy={isDeleting}
           error={deleteError}
           onConfirm={onConfirmDelete}

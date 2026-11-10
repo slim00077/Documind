@@ -8,12 +8,14 @@ import {
 } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { Bot, FileText, Microscope, Plus, Send, Square, Trash2 } from "lucide-react";
+import { Trans, useTranslation } from "react-i18next";
 import { useAuth } from "../context/AuthContext";
 import { ApiError, analyzeDocumentsRequest } from "../services/assistant.api";
 import type { AssistantSource } from "../types/assistant";
 import CitedAnswer from "../components/assistant/CitedAnswer";
 import SuggestedQuestions from "../components/assistant/SuggestedQuestions";
 import { useAssistantConversation } from "../hooks/useAssistantConversation";
+import { formatDate } from "../i18n/format";
 
 function formatRelativeDate(iso: string): string {
   const date = new Date(iso);
@@ -21,13 +23,14 @@ function formatRelativeDate(iso: string): string {
   const isSameDay = date.toDateString() === now.toDateString();
 
   if (isSameDay) {
-    return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    return formatDate(date, { hour: "2-digit", minute: "2-digit" });
   }
 
-  return date.toLocaleDateString([], { month: "short", day: "numeric" });
+  return formatDate(date, { month: "short", day: "numeric" });
 }
 
 export default function AssistantPage() {
+  const { t } = useTranslation();
   const {
     conversations,
     activeId,
@@ -121,7 +124,7 @@ export default function AssistantPage() {
           ? {
               ...previous,
               running: false,
-              error: err instanceof ApiError ? err.message : "Analysis failed. Please try again.",
+              error: err instanceof ApiError ? err.message : t("Analysis failed. Please try again."),
             }
           : previous,
       );
@@ -142,7 +145,7 @@ export default function AssistantPage() {
 
   const onDeleteConversation = (event: MouseEvent, id: number) => {
     event.stopPropagation();
-    if (window.confirm("Delete this conversation? This can't be undone.")) {
+    if (window.confirm(t("Delete this conversation? This can't be undone."))) {
       void deleteConversation(id);
     }
   };
@@ -151,26 +154,31 @@ export default function AssistantPage() {
     <section className="page-stack assistant-page">
       <div className="page-heading">
         <div>
-          <p className="section-kicker">Document intelligence</p>
-          <h1>AI Assistant</h1>
-          <p>Ask questions about your documents in plain language.</p>
+          <p className="section-kicker">{t("Document intelligence")}</p>
+          <h1>{t("AI Assistant")}</h1>
+          <p>{t("Ask questions about your documents in plain language.")}</p>
         </div>
         <button type="button" className="button button-primary" onClick={startNewConversation}>
-          <Plus /> New Chat
+          <Plus /> {t("New Chat")}
         </button>
       </div>
 
       {scopedDocument ? (
         <div className="scope-banner">
-          <FileText /> Answering from <Link to={`/app/documents/${scopedDocument.id}`}>{scopedDocument.name}</Link> only
+          <FileText />{" "}
+          <Trans
+            i18nKey="Answering from <doc>{{name}}</doc> only"
+            values={{ name: scopedDocument.name }}
+            components={{ doc: <Link to={`/app/documents/${scopedDocument.id}`} /> }}
+          />
         </div>
       ) : null}
 
       <div className="assistant-page-layout">
         <aside className="assistant-history-sidebar">
-          <h2>History</h2>
+          <h2>{t("History")}</h2>
           {conversations.length === 0 ? (
-            <p className="assistant-history-empty">No conversations yet.</p>
+            <p className="assistant-history-empty">{t("No conversations yet.")}</p>
           ) : (
             <ul className="assistant-history-list">
               {conversations.map((conversation) => (
@@ -184,7 +192,7 @@ export default function AssistantPage() {
                     onClick={() => void selectConversation(conversation.id)}
                   >
                     <span className="assistant-history-title">
-                      {conversation.title ?? "New conversation"}
+                      {conversation.title ?? t("New conversation")}
                     </span>
                     <span className="assistant-history-meta">
                       {formatRelativeDate(conversation.updatedAt)}
@@ -193,7 +201,7 @@ export default function AssistantPage() {
                   <button
                     type="button"
                     className="assistant-history-delete"
-                    aria-label="Delete conversation"
+                    aria-label={t("Delete conversation")}
                     onClick={(event) => onDeleteConversation(event, conversation.id)}
                   >
                     <Trash2 />
@@ -208,18 +216,16 @@ export default function AssistantPage() {
           <div className="assistant-panel-messages assistant-page-messages">
             {isLoadingConversation ? (
               <div className="assistant-empty compact-empty">
-                <p>Loading conversation…</p>
+                <p>{t("Loading conversation…")}</p>
               </div>
             ) : messages.length === 0 ? (
               <div className="assistant-empty compact-empty">
                 <div className="empty-icon">
                   <Bot />
                 </div>
-                <h2>Ask about your documents</h2>
+                <h2>{t("Ask about your documents")}</h2>
                 <p>
-                  Mention a document by name, ask for a summary, or just ask a
-                  natural question - I'll search your documents and answer
-                  using only what I find there.
+                  {t("Mention a document by name, ask for a summary, or just ask a natural question - I'll search your documents and answer using only what I find there.")}
                 </p>
                 <SuggestedQuestions
                   mode="start"
@@ -247,7 +253,7 @@ export default function AssistantPage() {
               <div
                 className="chat-typing"
                 aria-live="polite"
-                aria-label="Assistant is thinking"
+                aria-label={t("Assistant is thinking")}
               >
                 <span />
                 <span />
@@ -270,7 +276,7 @@ export default function AssistantPage() {
 
           {analysis ? (
             <div className="chat-message chat-message-assistant" aria-live="polite">
-              <strong>Deep analysis: {analysis.task}</strong>
+              <strong>{t("Deep analysis: {{task}}", { task: analysis.task })}</strong>
               {analysis.steps.length > 0 ? (
                 <ul>
                   {analysis.steps.map((step, index) => (
@@ -278,7 +284,7 @@ export default function AssistantPage() {
                   ))}
                 </ul>
               ) : null}
-              {analysis.running && !analysis.report ? <p>Working…</p> : null}
+              {analysis.running && !analysis.report ? <p>{t("Working…")}</p> : null}
               {analysis.report ? (
                 <div style={{ whiteSpace: "pre-wrap" }}>
                   <CitedAnswer content={analysis.report} sources={analysis.sources} />
@@ -287,7 +293,7 @@ export default function AssistantPage() {
               {analysis.error ? <p role="alert">{analysis.error}</p> : null}
               {!analysis.running ? (
                 <button type="button" className="button" onClick={() => setAnalysis(null)}>
-                  Dismiss
+                  {t("Dismiss")}
                 </button>
               ) : null}
             </div>
@@ -301,28 +307,28 @@ export default function AssistantPage() {
               value={question}
               onChange={(event) => setQuestion(event.target.value)}
               onKeyDown={onKeyDown}
-              placeholder={scopedDocument ? `Ask about ${scopedDocument.name}` : "Ask a question about your documents"}
-              aria-label="Message the AI assistant"
+              placeholder={scopedDocument ? t("Ask about {{name}}", { name: scopedDocument.name }) : t("Ask a question about your documents")}
+              aria-label={t("Message the AI assistant")}
               rows={1}
               disabled={isSending}
             />
             <button
               type="button"
-              aria-label="Deep analysis (agent)"
-              title="Deep analysis: the agent searches and compares your documents and writes a report"
+              aria-label={t("Deep analysis (agent)")}
+              title={t("Deep analysis: the agent searches and compares your documents and writes a report")}
               disabled={!question.trim() || isSending || Boolean(analysis?.running)}
               onClick={() => void runAnalysis()}
             >
               <Microscope />
             </button>
             {isSending ? (
-            <button type="button" aria-label="Stop generating" onClick={stopStreaming}>
+            <button type="button" aria-label={t("Stop generating")} onClick={stopStreaming}>
               <Square />
             </button>
           ) : (
             <button
               type="submit"
-              aria-label="Send message"
+              aria-label={t("Send message")}
               disabled={!question.trim()}
             >
               <Send />

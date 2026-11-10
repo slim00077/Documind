@@ -1,6 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import type { ConversationTurn, JsonSchema, LLMProvider, RetrievedChunk } from "../llm-provider";
+import type { AnswerOptions, ConversationTurn, JsonSchema, LLMProvider, RetrievedChunk } from "../llm-provider";
 import { parseJsonLoose } from "../structured";
 import { buildRagPrompt } from "../build-rag-prompt";
 import { LlmProviderError } from "../provider-error";
@@ -45,8 +45,9 @@ export class GroqLlmProvider implements LLMProvider {
     question: string,
     chunks: RetrievedChunk[],
     history: ConversationTurn[] = [],
+    options: AnswerOptions = {},
   ): Promise<string> {
-    return this.chat(buildRagPrompt(question, chunks, history));
+    return this.chat(buildRagPrompt(question, chunks, history, options));
   }
 
   /** Native JSON mode: response_format json_object. */

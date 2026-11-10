@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { Check, FolderTree, Pencil, Plus, Trash2, X } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "../../context/AuthContext";
 import {
   ApiError,
@@ -25,6 +26,7 @@ export default function CategoryManagerPanel({
   onUpdated,
   onDeleted,
 }: CategoryManagerPanelProps) {
+  const { t } = useTranslation();
   const { token } = useAuth();
   const { showToast } = useToast();
 
@@ -54,10 +56,10 @@ export default function CategoryManagerPanel({
       const created = await createCategoryRequest(token, newName.trim());
       onCreated(created);
       setNewName("");
-      showToast(`Category "${created.name}" created.`, "success");
+      showToast(t("Category \"{{name}}\" created.", { name: created.name }), "success");
     } catch (error) {
       setCreateError(
-        error instanceof ApiError ? error.message : "Unable to create this category right now."
+        error instanceof ApiError ? error.message : t("Unable to create this category right now.")
       );
     } finally {
       setIsCreating(false);
@@ -84,7 +86,7 @@ export default function CategoryManagerPanel({
       setEditingId(null);
     } catch (error) {
       setEditError(
-        error instanceof ApiError ? error.message : "Unable to rename this category right now."
+        error instanceof ApiError ? error.message : t("Unable to rename this category right now.")
       );
     } finally {
       setIsSaving(false);
@@ -103,10 +105,10 @@ export default function CategoryManagerPanel({
       await deleteCategoryRequest(token, pendingDeleteId);
       onDeleted(pendingDeleteId);
       setPendingDeleteId(null);
-      showToast("Category deleted.", "success");
+      showToast(t("Category deleted."), "success");
     } catch (error) {
       setDeleteError(
-        error instanceof ApiError ? error.message : "Unable to delete this category right now."
+        error instanceof ApiError ? error.message : t("Unable to delete this category right now.")
       );
     } finally {
       setIsDeleting(false);
@@ -119,14 +121,14 @@ export default function CategoryManagerPanel({
         <input
           className="auth-input"
           type="text"
-          placeholder="New category name"
-          aria-label="New category name"
+          placeholder={t("New category name")}
+          aria-label={t("New category name")}
           value={newName}
           onChange={(event) => setNewName(event.target.value)}
           disabled={isCreating}
         />
         <button className="button button-primary" type="submit" disabled={isCreating || !newName.trim()}>
-          <Plus /> {isCreating ? "Creating..." : "Add category"}
+          <Plus /> {isCreating ? t("Creating...") : t("Add category")}
         </button>
       </form>
 
@@ -139,8 +141,8 @@ export default function CategoryManagerPanel({
       {categories.length === 0 ? (
         <PageState
           icon={FolderTree}
-          title="No categories yet."
-          message="Create your first category to give documents an intentional home."
+          title={t("No categories yet.")}
+          message={t("Create your first category to give documents an intentional home.")}
           compact
         />
       ) : (
@@ -161,7 +163,7 @@ export default function CategoryManagerPanel({
                     <button
                       type="button"
                       className="icon-button icon-button-positive"
-                      aria-label="Save category name"
+                      aria-label={t("Save category name")}
                       onClick={() => onSaveEdit(category)}
                       disabled={isSaving || !editingName.trim()}
                     >
@@ -170,7 +172,7 @@ export default function CategoryManagerPanel({
                     <button
                       type="button"
                       className="icon-button"
-                      aria-label="Cancel editing"
+                      aria-label={t("Cancel editing")}
                       onClick={() => setEditingId(null)}
                       disabled={isSaving}
                     >
@@ -186,14 +188,14 @@ export default function CategoryManagerPanel({
                   <div className="category-row-info">
                     <strong>{category.name}</strong>
                     <span>
-                      {category.documentCount} document{category.documentCount === 1 ? "" : "s"}
+                      {t("{{count}} documents", { count: category.documentCount })}
                     </span>
                   </div>
                   <div className="category-row-actions">
                     <button
                       type="button"
                       className="icon-button"
-                      aria-label={`Rename ${category.name}`}
+                      aria-label={t("Rename {{name}}", { name: category.name })}
                       onClick={() => startEditing(category)}
                     >
                       <Pencil />
@@ -201,7 +203,7 @@ export default function CategoryManagerPanel({
                     <button
                       type="button"
                       className="icon-button"
-                      aria-label={`Delete ${category.name}`}
+                      aria-label={t("Delete {{name}}", { name: category.name })}
                       onClick={() => setPendingDeleteId(category.id)}
                     >
                       <Trash2 />
@@ -221,9 +223,9 @@ export default function CategoryManagerPanel({
 
       {pendingDeleteId !== null ? (
         <ConfirmDialog
-          title="Delete category"
-          message="Documents in this category will become uncategorized. This action cannot be undone."
-          confirmLabel="Delete"
+          title={t("Delete category")}
+          message={t("Documents in this category will become uncategorized. This action cannot be undone.")}
+          confirmLabel={t("Delete")}
           isBusy={isDeleting}
           error={deleteError}
           onConfirm={onConfirmDelete}

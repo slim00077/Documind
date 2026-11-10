@@ -1,9 +1,13 @@
 import { useEffect, useState } from "react";
 import { Sparkles } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "../../context/AuthContext";
 import { getDocumentRequest, listDocumentsRequest } from "../../services/documents.api";
+import type { TranslationKey } from "../../i18n";
 
-const FOLLOW_UPS = [
+// Suggestions are sent to the assistant as typed, so they follow the UI language; document names
+// and AI-generated topics are inserted unchanged.
+const FOLLOW_UPS: TranslationKey[] = [
   "Summarize that in 3 bullet points",
   "Give me more detail",
   "What are the key takeaways?",
@@ -25,6 +29,7 @@ const READY = new Set(["READY", "COMPLETED"]);
  * about content the user doesn't actually have.
  */
 export default function SuggestedQuestions({ mode, scopedDocument, disabled, onPick }: SuggestedQuestionsProps) {
+  const { t } = useTranslation();
   const { token } = useAuth();
   const [questions, setQuestions] = useState<string[]>([]);
   const scopedId = scopedDocument?.id ?? null;
@@ -39,10 +44,10 @@ export default function SuggestedQuestions({ mode, scopedDocument, disabled, onP
         const document = await getDocumentRequest(token, scopedId);
         const topics = document.insights?.topics.slice(0, 2) ?? [];
         return [
-          `Summarize ${scopedName} in 5 bullet points`,
-          "What are the key dates and deadlines?",
-          "Which people or organizations are mentioned?",
-          ...topics.map((topic) => `What does the document say about ${topic}?`),
+          t("Summarize {{name}} in 5 bullet points", { name: scopedName }),
+          t("What are the key dates and deadlines?"),
+          t("Which people or organizations are mentioned?"),
+          ...topics.map((topic) => t("What does the document say about {{topic}}?", { topic })),
         ];
       }
 
@@ -50,9 +55,9 @@ export default function SuggestedQuestions({ mode, scopedDocument, disabled, onP
       if (documents.length === 0) return [];
 
       return [
-        ...documents.slice(0, 2).map((document) => `Summarize "${document.name}"`),
-        "What are the main topics across my documents?",
-        "Which of my documents mention dates or deadlines?",
+        ...documents.slice(0, 2).map((document) => t("Summarize \"{{name}}\"", { name: document.name })),
+        t("What are the main topics across my documents?"),
+        t("Which of my documents mention dates or deadlines?"),
       ];
     };
 
@@ -67,13 +72,13 @@ export default function SuggestedQuestions({ mode, scopedDocument, disabled, onP
     return () => {
       isActive = false;
     };
-  }, [token, mode, scopedId, scopedName]);
+  }, [token, mode, scopedId, scopedName, t]);
 
-  const items = mode === "followup" ? FOLLOW_UPS : questions;
+  const items = mode === "followup" ? FOLLOW_UPS.map((key) => t(key)) : questions;
   if (items.length === 0) return null;
 
   return (
-    <div className={`suggested-questions ${mode === "followup" ? "is-followup" : ""}`} aria-label="Suggested questions">
+    <div className={`suggested-questions ${mode === "followup" ? "is-followup" : ""}`} aria-label={t("Suggested questions")}>
       {items.map((question) => (
         <button key={question} type="button" className="suggestion-chip" disabled={disabled} onClick={() => onPick(question)}>
           <Sparkles /> {question}

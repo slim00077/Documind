@@ -1,5 +1,6 @@
 import { API_URL } from "../config/api";
 import type { NotificationsResponse } from "../types/notification";
+import i18n from "../i18n";
 
 const NOTIFICATIONS_API_URL = `${API_URL}/api/notifications`;
 
@@ -14,7 +15,7 @@ const request = async <T>(
   });
 
   if (!response.ok) {
-    throw new Error("Notification request failed");
+    throw new Error(i18n.t("Notification request failed"));
   }
 
   return (await response.json().catch(() => ({}))) as T;

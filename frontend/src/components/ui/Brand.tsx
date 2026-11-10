@@ -1,5 +1,6 @@
 import { useId } from "react";
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 
 /** Geometric document with a folded corner, text lines, and a small connected spark. */
 export function LogoMark({ size = 32 }: { size?: number }) {
@@ -28,8 +29,9 @@ export function LogoMark({ size = 32 }: { size?: number }) {
 }
 
 export default function Brand({ to = "/" }: { to?: string }) {
+  const { t } = useTranslation();
   return (
-    <Link className="brand" to={to} aria-label="DocuMind home">
+    <Link className="brand" to={to} aria-label={t("DocuMind home")}>
       <LogoMark />
       <span className="brand-word">
         Docu<b>Mind</b>

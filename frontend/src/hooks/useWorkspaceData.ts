@@ -4,6 +4,7 @@ import { ApiError, listDocumentsRequest, listSharedDocumentsRequest } from "../s
 import { listConversationsRequest } from "../services/assistant.api";
 import type { Document } from "../types/document";
 import type { ConversationSummary } from "../types/assistant";
+import i18n from "../i18n";
 
 // Real data for the role dashboards, loaded from the existing document and assistant APIs.
 export function useWorkspaceData() {
@@ -28,7 +29,7 @@ export function useWorkspaceData() {
       setShared(sharedDocs);
       setConversations(convs);
     } catch (loadError) {
-      setError(loadError instanceof ApiError ? loadError.message : "Unable to load your workspace right now.");
+      setError(loadError instanceof ApiError ? loadError.message : i18n.t("Unable to load your workspace right now."));
     } finally {
       setIsLoading(false);
     }

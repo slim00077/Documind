@@ -1,7 +1,10 @@
 import { AUTH_API_URL } from "../config/api";
+import i18n from "../i18n";
 
 export type Theme = "LIGHT" | "DARK" | "SYSTEM";
 export type AiResponseStyle = "CONCISE" | "BALANCED" | "DETAILED";
+/** Saved interface language; null until the user picks one (the device/browser language applies). */
+export type PreferredLanguage = "EN" | "FR";
 
 export type AuthUser = {
   id: number;
@@ -10,6 +13,7 @@ export type AuthUser = {
   role: "USER" | "STUDENT" | "TEACHER" | "ADMIN";
   theme: Theme;
   aiResponseStyle: AiResponseStyle;
+  language: PreferredLanguage | null;
 };
 
 type AuthResponse = {
@@ -59,7 +63,7 @@ const request = async <T>(
 
   if (!response.ok) {
     throw new ApiError(
-      data.message ?? "Request failed",
+      data.message ?? i18n.t("Request failed"),
       response.status
     );
   }
@@ -71,6 +75,7 @@ export const registerRequest = (payload: {
   name: string;
   email: string;
   password: string;
+  language?: PreferredLanguage;
 }): Promise<AuthResponse> =>
   request<AuthResponse>("/register", {
     method: "POST",
@@ -116,7 +121,7 @@ export const changePasswordRequest = (
 
 export const updatePreferencesRequest = (
   token: string,
-  payload: { theme?: Theme; aiResponseStyle?: AiResponseStyle }
+  payload: { theme?: Theme; aiResponseStyle?: AiResponseStyle; language?: PreferredLanguage }
 ): Promise<{ user: AuthUser }> =>
   request<{ user: AuthUser }>("/me/preferences", {
     method: "PATCH",

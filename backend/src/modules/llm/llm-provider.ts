@@ -1,3 +1,5 @@
+import type { AppLanguage } from "../../common/i18n/language";
+
 export type RetrievedChunk = {
   content: string;
   documentName?: string;
@@ -10,6 +12,11 @@ export type ConversationTurn = {
   content: string;
 };
 
+/** Per-request answer settings. `language` is the user's interface language for the answer text. */
+export type AnswerOptions = {
+  language?: AppLanguage;
+};
+
 /** JSON Schema subset (object/array/string/integer) shared by structured calls. */
 export type JsonSchema = Record<string, unknown>;
 
@@ -20,6 +27,7 @@ export interface LLMProvider {
     question: string,
     chunks: RetrievedChunk[],
     history?: ConversationTurn[],
+    options?: AnswerOptions,
   ): Promise<string>;
   /**
    * Optional: returns a JSON value conforming to `schema`, using the
@@ -39,6 +47,7 @@ export interface LLMProvider {
     chunks: RetrievedChunk[],
     history?: ConversationTurn[],
     signal?: AbortSignal,
+    options?: AnswerOptions,
   ): AsyncGenerator<string>;
 }
 

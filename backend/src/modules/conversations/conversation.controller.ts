@@ -19,6 +19,8 @@ import { SendMessageDto } from "./dto/send-message.dto";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import type { AuthTokenPayload } from "../auth/guards/jwt-auth.guard";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
+import { RequestLanguage, type AppLanguage } from "../../common/i18n/language";
+import { translateMessage } from "../../common/i18n/translate";
 
 @Controller("conversations")
 @UseGuards(JwtAuthGuard)
@@ -30,8 +32,9 @@ export class ConversationController {
   create(
     @CurrentUser() user: AuthTokenPayload,
     @Body() dto: CreateConversationDto,
+    @RequestLanguage() language: AppLanguage,
   ) {
-    return this.conversationService.create(user.userId, dto.documentId);
+    return this.conversationService.create(user.userId, dto.documentId, language);
   }
 
   @Get()
@@ -60,8 +63,9 @@ export class ConversationController {
     @CurrentUser() user: AuthTokenPayload,
     @Param("id", ParseIntPipe) id: number,
     @Body() dto: SendMessageDto,
+    @RequestLanguage() language: AppLanguage,
   ) {
-    return this.conversationService.sendMessage(user.userId, id, dto.content);
+    return this.conversationService.sendMessage(user.userId, id, dto.content, language);
   }
 
   /**
@@ -75,6 +79,7 @@ export class ConversationController {
     @Param("id", ParseIntPipe) id: number,
     @Body() dto: SendMessageDto,
     @Res() res: Response,
+    @RequestLanguage() language: AppLanguage,
   ) {
     const abort = new AbortController();
     res.on("close", () => {
@@ -105,14 +110,18 @@ data: ${JSON.stringify(data)}
         id,
         dto.content,
         abort.signal,
+        language,
       )) {
         send(event.type, event);
       }
     } catch (error) {
       if (!abort.signal.aborted) {
         const status = error instanceof HttpException ? error.getStatus() : 500;
-        const message =
-          error instanceof HttpException ? error.message : "Something went wrong. Please try again.";
+        // @Res() bypasses the global exception filter, so the message is localized here.
+        const message = translateMessage(
+          error instanceof HttpException ? error.message : "Something went wrong. Please try again.",
+          language,
+        );
         if (started) {
           send("error", { message, statusCode: status });
         } else {

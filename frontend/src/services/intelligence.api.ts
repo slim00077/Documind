@@ -8,6 +8,7 @@ import type {
   SummaryLevel,
   SummaryResult,
 } from "../types/intelligence";
+import i18n from "../i18n";
 
 const post = async <T>(token: string, path: string, body: unknown): Promise<T> => {
   const response = await fetch(`${INTELLIGENCE_API_URL}${path}`, {
@@ -18,7 +19,7 @@ const post = async <T>(token: string, path: string, body: unknown): Promise<T> =
   const data = (await response.json().catch(() => ({}))) as { message?: string | string[] };
   if (!response.ok) {
     const message = Array.isArray(data.message) ? data.message.join(" ") : data.message;
-    throw new ApiError(message ?? "Request failed", response.status);
+    throw new ApiError(message ?? i18n.t("Request failed"), response.status);
   }
   return data as T;
 };

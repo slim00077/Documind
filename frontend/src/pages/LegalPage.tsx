@@ -1,9 +1,11 @@
+import { useTranslation } from "react-i18next";
 import PublicHeader from "../components/layout/PublicHeader";
 import SiteFooter from "../components/layout/SiteFooter";
+import type { TranslationKey } from "../i18n";
 
 type LegalKind = "privacy" | "terms";
 
-const CONTENT: Record<LegalKind, { title: string; sections: { heading: string; body: string[] }[] }> = {
+const CONTENT: Record<LegalKind, { title: TranslationKey; sections: { heading: TranslationKey; body: TranslationKey[] }[] }> = {
   privacy: {
     title: "Privacy Policy",
     sections: [
@@ -51,18 +53,19 @@ const CONTENT: Record<LegalKind, { title: string; sections: { heading: string; b
 };
 
 export default function LegalPage({ kind }: { kind: LegalKind }) {
+  const { t } = useTranslation();
   const { title, sections } = CONTENT[kind];
   return (
     <div className="app">
       <PublicHeader />
       <main className="legal">
-        <h1>{title}</h1>
-        <p className="draft-note">Summary of current behavior. Have this reviewed by counsel before public launch.</p>
+        <h1>{t(title)}</h1>
+        <p className="draft-note">{t("Summary of current behavior. Have this reviewed by counsel before public launch.")}</p>
         {sections.map((section) => (
           <section key={section.heading}>
-            <h2>{section.heading}</h2>
+            <h2>{t(section.heading)}</h2>
             {section.body.map((paragraph) => (
-              <p key={paragraph}>{paragraph}</p>
+              <p key={paragraph}>{t(paragraph)}</p>
             ))}
           </section>
         ))}

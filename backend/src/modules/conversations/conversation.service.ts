@@ -4,6 +4,7 @@ import { AssistantService, type AssistantSource } from "../assistant/assistant.s
 import { MessageRole } from "../../../generated/prisma/client";
 import type { ConversationTurn } from "../llm/llm-provider";
 import { anyAccessWhere } from "../access/document-access";
+import { DEFAULT_LANGUAGE, type AppLanguage } from "../../common/i18n/language";
 
 export type ConversationStreamEvent =
   | { type: "delta"; text: string }
@@ -27,6 +28,9 @@ const HISTORY_TURN_LIMIT = 10;
 const HISTORY_TURN_MAX_CHARS = 1200;
 const HISTORY_TOTAL_MAX_CHARS = 6000;
 
+/** Default title of an "Ask AI about this document" conversation, in the user's language. */
+const SCOPED_TITLE_PREFIX: Record<AppLanguage, string> = { en: "Ask AI", fr: "Demander à l’IA" };
+
 @Injectable()
 export class ConversationService {
   constructor(
@@ -34,7 +38,7 @@ export class ConversationService {
     private readonly assistantService: AssistantService,
   ) {}
 
-  async create(userId: number, documentId?: number) {
+  async create(userId: number, documentId?: number, language: AppLanguage = DEFAULT_LANGUAGE) {
     if (documentId !== undefined) {
       const document = await this.prisma.document.findFirst({
         where: {
@@ -53,7 +57,7 @@ export class ConversationService {
         data: {
           userId,
           scopedDocumentId: document.id,
-          title: `Ask AI: ${document.name}`.slice(0, TITLE_MAX_LENGTH),
+          title: `${SCOPED_TITLE_PREFIX[language]}${language === "fr" ? " : " : ": "}${document.name}`.slice(0, TITLE_MAX_LENGTH),
         },
       });
     }
@@ -170,7 +174,7 @@ export class ConversationService {
     return { conversation, history };
   }
 
-  async sendMessage(userId: number, id: number, content: string) {
+  async sendMessage(userId: number, id: number, content: string, language: AppLanguage = DEFAULT_LANGUAGE) {
     const { conversation, history } = await this.loadForSend(userId, id, content);
 
     const result = await this.assistantService.ask(
@@ -179,6 +183,7 @@ export class ConversationService {
       history,
       conversation.lastDocumentId,
       conversation.scopedDocumentId,
+      language,
     );
 
     const assistantMessage = await this.prisma.message.create({
@@ -222,6 +227,7 @@ export class ConversationService {
     id: number,
     content: string,
     signal?: AbortSignal,
+    language: AppLanguage = DEFAULT_LANGUAGE,
   ): AsyncGenerator<ConversationStreamEvent> {
     const { conversation, history } = await this.loadForSend(userId, id, content);
     let partial = "";
@@ -234,6 +240,7 @@ export class ConversationService {
         conversation.lastDocumentId,
         conversation.scopedDocumentId,
         signal,
+        language,
       )) {
         if (event.type === "delta") {
           partial += event.text;

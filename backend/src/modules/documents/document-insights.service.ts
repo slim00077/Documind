@@ -8,6 +8,7 @@ import {
 } from "@nestjs/common";
 import { PrismaService } from "../../prisma/prisma.service";
 import { LLM_PROVIDER_TOKEN, type LLMProvider } from "../llm/llm-provider";
+import { DEFAULT_LANGUAGE, type AppLanguage } from "../../common/i18n/language";
 
 const MAX_CONTEXT_CHUNKS = 12;
 
@@ -49,6 +50,7 @@ export class DocumentInsightsService {
   async generate(
     documentId: number,
     documentName: string,
+    language: AppLanguage = DEFAULT_LANGUAGE,
   ): Promise<DocumentInsights> {
     const chunks = await this.prisma.documentChunk.findMany({
       where: { documentId },
@@ -77,6 +79,8 @@ export class DocumentInsightsService {
           documentName,
           chunkIndex: chunk.chunkIndex,
         })),
+        [],
+        { language },
       );
     } catch (error) {
       if (error instanceof HttpException) {

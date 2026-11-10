@@ -1,5 +1,6 @@
 import { useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { FileText, Upload, X } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { createDocumentRequest, ApiError } from "../../services/documents.api";
 import type { Document } from "../../types/document";
 import type { Category } from "../../types/category";
@@ -9,7 +10,6 @@ import {
   ALLOWED_DOCUMENT_FILE_TYPES_LABEL,
   ALLOWED_DOCUMENT_MIME_TYPES,
   MAX_DOCUMENT_FILE_SIZE_BYTES,
-  MAX_DOCUMENT_FILE_SIZE_LABEL,
 } from "../../config/documents";
 
 type CreateDocumentModalProps = {
@@ -40,6 +40,9 @@ export default function CreateDocumentModal({
   onCreated,
   onClose,
 }: CreateDocumentModalProps) {
+  const { t } = useTranslation();
+  const fileTypesLabel = t(ALLOWED_DOCUMENT_FILE_TYPES_LABEL);
+  const maxSizeLabel = formatFileSize(MAX_DOCUMENT_FILE_SIZE_BYTES);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [name, setName] = useState("");
@@ -62,16 +65,12 @@ export default function CreateDocumentModal({
     setFileError("");
 
     if (!isAllowedFile(selected)) {
-      setFileError(
-        `Unsupported file type. Allowed formats: ${ALLOWED_DOCUMENT_FILE_TYPES_LABEL}.`
-      );
+      setFileError(t("Unsupported file type. Allowed formats: {{formats}}.", { formats: fileTypesLabel }));
       return;
     }
 
     if (selected.size > MAX_DOCUMENT_FILE_SIZE_BYTES) {
-      setFileError(
-        `File is too large. Maximum size is ${MAX_DOCUMENT_FILE_SIZE_LABEL}.`
-      );
+      setFileError(t("File is too large. Maximum size is {{size}}.", { size: maxSizeLabel }));
       return;
     }
 
@@ -88,7 +87,7 @@ export default function CreateDocumentModal({
     setError("");
 
     if (!name.trim()) {
-      setError("Name is required.");
+      setError(t("Name is required."));
       return;
     }
 
@@ -115,7 +114,7 @@ export default function CreateDocumentModal({
       if (submitError instanceof ApiError) {
         setError(submitError.message);
       } else {
-        setError("Unable to create the document right now. Please try again.");
+        setError(t("Unable to create the document right now. Please try again."));
       }
     } finally {
       setIsSubmitting(false);
@@ -131,13 +130,13 @@ export default function CreateDocumentModal({
         noValidate
         onClick={(event) => event.stopPropagation()}
       >
-        <h2>New document</h2>
+        <h2>{t("New document")}</h2>
         <p className="modal-message">
-          Add a document to your library, optionally attaching a file.
+          {t("Add a document to your library, optionally attaching a file.")}
         </p>
 
         <label className="auth-label" htmlFor="document-name">
-          Name
+          {t("Name")}
         </label>
         <input
           id="document-name"
@@ -151,7 +150,7 @@ export default function CreateDocumentModal({
         />
 
         <label className="auth-label" htmlFor="document-description">
-          Description (optional)
+          {t("Description (optional)")}
         </label>
         <textarea
           id="document-description"
@@ -165,7 +164,7 @@ export default function CreateDocumentModal({
         {categories.length > 0 ? (
           <>
             <label className="auth-label" htmlFor="document-category">
-              Category (optional)
+              {t("Category (optional)")}
             </label>
             <select
               id="document-category"
@@ -174,7 +173,7 @@ export default function CreateDocumentModal({
               onChange={(event) => setCategoryId(event.target.value)}
               disabled={isSubmitting}
             >
-              <option value="">No category</option>
+              <option value="">{t("No category")}</option>
               {categories.map((category) => (
                 <option key={category.id} value={String(category.id)}>
                   {category.name}
@@ -184,7 +183,7 @@ export default function CreateDocumentModal({
           </>
         ) : null}
 
-        <label className="auth-label">File (optional)</label>
+        <label className="auth-label">{t("File (optional)")}</label>
         <input
           ref={fileInputRef}
           type="file"
@@ -202,13 +201,13 @@ export default function CreateDocumentModal({
             <div className="file-chip-info">
               <strong>{file.name}</strong>
               <span>
-                {file.type || "Unknown type"} &middot; {formatFileSize(file.size)}
+                {file.type || t("Unknown type")} &middot; {formatFileSize(file.size)}
               </span>
             </div>
             <button
               type="button"
               className="icon-button"
-              aria-label="Remove selected file"
+              aria-label={t("Remove selected file")}
               onClick={removeFile}
               disabled={isSubmitting}
             >
@@ -223,10 +222,9 @@ export default function CreateDocumentModal({
             disabled={isSubmitting}
           >
             <Upload />
-            <span>Click to choose a file</span>
+            <span>{t("Click to choose a file")}</span>
             <small>
-              {ALLOWED_DOCUMENT_FILE_TYPES_LABEL} &middot; up to{" "}
-              {MAX_DOCUMENT_FILE_SIZE_LABEL}
+              {t("{{formats}} · up to {{size}}", { formats: fileTypesLabel, size: maxSizeLabel })}
             </small>
           </button>
         )}
@@ -265,7 +263,7 @@ export default function CreateDocumentModal({
             onClick={onClose}
             disabled={isSubmitting}
           >
-            Cancel
+            {t("Cancel")}
           </button>
           <button
             type="submit"
@@ -274,9 +272,11 @@ export default function CreateDocumentModal({
           >
             {isSubmitting
               ? file
-                ? `Uploading${uploadProgress !== null ? ` ${uploadProgress}%` : "..."}`
-                : "Creating..."
-              : "Create document"}
+                ? uploadProgress !== null
+                  ? t("Uploading {{percent}}%", { percent: uploadProgress })
+                  : t("Uploading...")
+                : t("Creating...")
+              : t("Create document")}
           </button>
         </div>
       </form>

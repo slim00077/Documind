@@ -1,4 +1,5 @@
 import { MiddlewareConsumer, Module, NestModule } from "@nestjs/common";
+import { APP_FILTER } from "@nestjs/core";
 import type { NextFunction, Request, Response } from "express";
 import { runWithWorkspace } from "./modules/access/workspace-context";
 import { ConfigModule } from "@nestjs/config";
@@ -17,6 +18,7 @@ import { NotificationsModule } from "./modules/notifications/notifications.modul
 import { OrganizationsModule } from "./modules/organizations/organizations.module";
 import { HealthModule } from "./modules/health/health.module";
 import { StorageModule } from "./modules/storage/storage.module";
+import { I18nExceptionFilter } from "./common/i18n/i18n-exception.filter";
 
 @Module({
   imports: [
@@ -37,6 +39,8 @@ import { StorageModule } from "./modules/storage/storage.module";
     OrganizationsModule,
     HealthModule,
   ],
+  // Error messages follow the caller's Accept-Language (English by default).
+  providers: [{ provide: APP_FILTER, useClass: I18nExceptionFilter }],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {

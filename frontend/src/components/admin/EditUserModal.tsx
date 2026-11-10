@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { X } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "../../context/AuthContext";
 import { ApiError, updateAdminUserRequest } from "../../services/admin.api";
 import type { AdminUser } from "../../types/admin";
@@ -14,6 +15,7 @@ type EditUserModalProps = {
 };
 
 export default function EditUserModal({ user, onClose, onUpdated }: EditUserModalProps) {
+  const { t } = useTranslation();
   const { token, user: currentUser } = useAuth();
 
   const [name, setName] = useState(user.name);
@@ -37,7 +39,7 @@ export default function EditUserModal({ user, onClose, onUpdated }: EditUserModa
       onClose();
     } catch (updateError) {
       setError(
-        updateError instanceof ApiError ? updateError.message : "Unable to update this user right now."
+        updateError instanceof ApiError ? updateError.message : t("Unable to update this user right now.")
       );
     } finally {
       setIsSaving(false);
@@ -46,16 +48,16 @@ export default function EditUserModal({ user, onClose, onUpdated }: EditUserModa
 
   return (
     <div className="modal-overlay" role="presentation" onClick={onClose}>
-      <div className="modal-card" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
+      <div className="modal-card" role="dialog" aria-modal="true" aria-label={t("Edit user")} onClick={(event) => event.stopPropagation()}>
         <div className="page-heading" style={{ marginBottom: 4 }}>
-          <h2>Edit user</h2>
-          <button className="icon-button" type="button" onClick={onClose} aria-label="Close">
+          <h2>{t("Edit user")}</h2>
+          <button className="icon-button" type="button" onClick={onClose} aria-label={t("Close")}>
             <X />
           </button>
         </div>
 
         <form onSubmit={onSubmit}>
-          <label className="auth-label" htmlFor="edit-user-name">Name</label>
+          <label className="auth-label" htmlFor="edit-user-name">{t("Name")}</label>
           <input
             id="edit-user-name"
             className="auth-input"
@@ -64,7 +66,7 @@ export default function EditUserModal({ user, onClose, onUpdated }: EditUserModa
             required
           />
 
-          <label className="auth-label" htmlFor="edit-user-email">Email</label>
+          <label className="auth-label" htmlFor="edit-user-email">{t("Email")}</label>
           <input
             id="edit-user-email"
             type="email"
@@ -74,7 +76,7 @@ export default function EditUserModal({ user, onClose, onUpdated }: EditUserModa
             required
           />
 
-          <label className="auth-label" htmlFor="edit-user-role">Role</label>
+          <label className="auth-label" htmlFor="edit-user-role">{t("Role")}</label>
           <select
             id="edit-user-role"
             className="auth-input"
@@ -82,20 +84,20 @@ export default function EditUserModal({ user, onClose, onUpdated }: EditUserModa
             onChange={(event) => setRole(event.target.value as AssignableRole)}
             disabled={isSelf}
           >
-            <option value="STUDENT">Student</option>
-            <option value="TEACHER">Teacher</option>
-            <option value="ADMIN">Admin</option>
+            <option value="STUDENT">{t("Student")}</option>
+            <option value="TEACHER">{t("Teacher")}</option>
+            <option value="ADMIN">{t("Admin")}</option>
           </select>
-          {isSelf ? <p className="auth-hint">You cannot change your own role.</p> : null}
+          {isSelf ? <p className="auth-hint">{t("You cannot change your own role.")}</p> : null}
 
           {error ? <p className="auth-error">{error}</p> : null}
 
           <div className="form-actions">
             <button className="button button-secondary" type="button" onClick={onClose}>
-              Cancel
+              {t("Cancel")}
             </button>
             <button className="button button-primary" type="submit" disabled={isSaving}>
-              {isSaving ? "Saving..." : "Save changes"}
+              {isSaving ? t("Saving...") : t("Save changes")}
             </button>
           </div>
         </form>

@@ -14,6 +14,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import type { AuthUser } from "../services/auth.api";
+import type { TranslationKey } from "../i18n";
 
 export type AppRole = "STUDENT" | "TEACHER" | "ADMIN";
 
@@ -21,13 +22,15 @@ export type AppRole = "STUDENT" | "TEACHER" | "ADMIN";
 export const normalizeRole = (role: AuthUser["role"] | undefined): AppRole =>
   role === "ADMIN" || role === "TEACHER" ? role : "STUDENT";
 
-export const ROLE_LABEL: Record<AppRole, string> = {
+/** Translation keys: render with t(ROLE_LABEL[role]). */
+export const ROLE_LABEL: Record<AppRole, TranslationKey> = {
   STUDENT: "Student",
   TEACHER: "Teacher",
   ADMIN: "Admin",
 };
 
-export type NavItem = { to: string; label: string; icon: LucideIcon };
+/** `label` is a translation key, rendered with t(label). */
+export type NavItem = { to: string; label: TranslationKey; icon: LucideIcon };
 
 // UI convenience only: every protected endpoint is enforced again on the server.
 export const NAV_BY_ROLE: Record<AppRole, NavItem[]> = {

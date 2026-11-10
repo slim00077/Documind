@@ -12,6 +12,7 @@ import {
   Sparkles,
   Users,
 } from "lucide-react";
+import { Trans, useTranslation } from "react-i18next";
 import PublicHeader from "../components/layout/PublicHeader";
 import SiteFooter from "../components/layout/SiteFooter";
 import AnimatedBackground from "../components/ui/AnimatedBackground";
@@ -20,13 +21,14 @@ import AnimatedHeroVisual from "../components/landing/AnimatedHeroVisual";
 import ProductDemoPanel, { type DemoKind } from "../components/landing/ProductDemoPanel";
 import { useAuth } from "../context/AuthContext";
 import { homePath } from "../config/roles";
+import type { TranslationKey } from "../i18n";
 
 const BENEFITS: {
   id: string;
   kind: DemoKind;
-  title: string;
-  short: string;
-  text: string;
+  title: TranslationKey;
+  short: TranslationKey;
+  text: TranslationKey;
   icon: typeof Sparkles;
   tone: "violet" | "cyan" | "blue" | "lavender";
 }[] = [
@@ -36,21 +38,22 @@ const BENEFITS: {
   { id: "compare", kind: "compare", icon: Scale, tone: "lavender", title: "Compare and discover", short: "See what matches and what changed.", text: "Place two documents side by side to spot similarities and differences, and find related files you forgot you had." },
 ];
 
-const STEPS = [
+const STEPS: { title: TranslationKey; text: TranslationKey }[] = [
   { title: "Upload", text: "Add PDFs, Word files, spreadsheets or images to your library." },
   { title: "Ask", text: "Chat with the assistant or search across everything you own." },
   { title: "Understand", text: "Get cited answers, summaries and comparisons in seconds." },
 ];
 
-const AUDIENCE = [
+const AUDIENCE: { icon: typeof Sparkles; tone: "violet" | "blue" | "lavender"; title: TranslationKey; text: TranslationKey }[] = [
   { icon: GraduationCap, tone: "violet", title: "On your own", text: "A private library with an assistant that reads your notes, papers and reports. No organization needed." },
   { icon: Users, tone: "blue", title: "With your team or class", text: "Share documents with a group and let everyone ask questions of the same sources." },
   { icon: LayoutDashboard, tone: "lavender", title: "For schools and companies", text: "Run your own organization with teachers, groups, invitations and clear access control." },
-] as const;
+];
 
 export default function WelcomePage() {
+  const { t } = useTranslation();
   const { isAuthenticated, user } = useAuth();
-  const primary = isAuthenticated ? { to: homePath(user?.role), label: "Open dashboard" } : { to: "/register", label: "Get started" };
+  const primary = isAuthenticated ? { to: homePath(user?.role), label: t("Open dashboard") } : { to: "/register", label: t("Get started") };
 
   return (
     <div className="app landing">
@@ -61,50 +64,49 @@ export default function WelcomePage() {
           <div className="hero-inner">
             <div className="hero-copy">
               <p className="hero-eyebrow">
-                <Sparkles aria-hidden="true" /> AI for your documents
+                <Sparkles aria-hidden="true" /> {t("AI for your documents")}
               </p>
               <h1>
-                Your Documents. <span>Smarter.</span> With AI.
+                <Trans i18nKey="Your Documents. <hl>Smarter.</hl> With AI." components={{ hl: <span /> }} />
               </h1>
               <p className="hero-lead">
-                Upload your files and ask questions in plain language. DocuMind answers from what you wrote, and shows you exactly
-                where each answer came from.
+                {t("Upload your files and ask questions in plain language. DocuMind answers from what you wrote, and shows you exactly where each answer came from.")}
               </p>
               <div className="hero-actions">
                 <Link className="button button-primary button-lg" to={primary.to}>
                   {primary.label} <ArrowRight />
                 </Link>
                 <a className="button button-secondary button-lg" href="#features">
-                  See what it does
+                  {t("See what it does")}
                 </a>
               </div>
               <p className="hero-note">
-                <Lock aria-hidden="true" /> Your documents stay private to you.
+                <Lock aria-hidden="true" /> {t("Your documents stay private to you.")}
               </p>
             </div>
             <AnimatedHeroVisual />
           </div>
         </section>
 
-        <section className="section tight" id="features" aria-label="What DocuMind does">
+        <section className="section tight" id="features" aria-label={t("What DocuMind does")}>
           <div className="feature-strip">
             {BENEFITS.map(({ id, icon, tone, title, short }) => (
-              <FeatureCard key={id} icon={icon} tone={tone} title={title} text={short} href={`#${id}`} action="See an example" />
+              <FeatureCard key={id} icon={icon} tone={tone} title={t(title)} text={t(short)} href={`#${id}`} action={t("See an example")} />
             ))}
           </div>
         </section>
 
         <section className="section" aria-labelledby="benefits-title">
           <div className="section-intro">
-            <p className="section-kicker">What you can do</p>
-            <h2 id="benefits-title">Less searching. More understanding.</h2>
+            <p className="section-kicker">{t("What you can do")}</p>
+            <h2 id="benefits-title">{t("Less searching. More understanding.")}</h2>
           </div>
           {BENEFITS.map(({ id, kind, title, text }, index) => (
             <div className={`benefit ${index % 2 ? "flip" : ""}`} id={id} key={id}>
               <div className="benefit-copy">
                 <span className="benefit-num">0{index + 1}</span>
-                <h3>{title}</h3>
-                <p>{text}</p>
+                <h3>{t(title)}</h3>
+                <p>{t(text)}</p>
               </div>
               <ProductDemoPanel kind={kind} />
             </div>
@@ -114,15 +116,15 @@ export default function WelcomePage() {
         <section className="band" id="how-it-works">
           <div className="section">
             <div className="section-intro">
-              <p className="section-kicker">How it works</p>
-              <h2>Three steps from file to answer</h2>
+              <p className="section-kicker">{t("How it works")}</p>
+              <h2>{t("Three steps from file to answer")}</h2>
             </div>
             <ol className="steps">
               {STEPS.map(({ title, text }, index) => (
                 <li className="step" key={title}>
                   <span className="step-num">{index + 1}</span>
-                  <h3>{title}</h3>
-                  <p>{text}</p>
+                  <h3>{t(title)}</h3>
+                  <p>{t(text)}</p>
                 </li>
               ))}
             </ol>
@@ -131,22 +133,22 @@ export default function WelcomePage() {
 
         <section className="section" id="about">
           <div className="section-intro">
-            <p className="section-kicker">Who it is for</p>
-            <h2>Use it alone, or bring your organization</h2>
+            <p className="section-kicker">{t("Who it is for")}</p>
+            <h2>{t("Use it alone, or bring your organization")}</h2>
           </div>
           <div className="audience">
             {AUDIENCE.map((item) => (
-              <FeatureCard key={item.title} {...item} />
+              <FeatureCard key={item.title} icon={item.icon} tone={item.tone} title={t(item.title)} text={t(item.text)} />
             ))}
           </div>
           <p className="trust-note">
-            <ShieldCheck aria-hidden="true" /> Private documents are never visible to other users.
+            <ShieldCheck aria-hidden="true" /> {t("Private documents are never visible to other users.")}
           </p>
         </section>
 
         <section className="final-cta" aria-labelledby="cta-title">
-          <h2 id="cta-title">Start with one document.</h2>
-          <p>Create an account, upload a file and ask it a question.</p>
+          <h2 id="cta-title">{t("Start with one document.")}</h2>
+          <p>{t("Create an account, upload a file and ask it a question.")}</p>
           <Link className="button button-primary button-lg" to={primary.to}>
             {primary.label} <ArrowRight />
           </Link>

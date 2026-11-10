@@ -1,5 +1,6 @@
 import { ArrowRight, type LucideIcon } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import type { GlassTone } from "./GlassCard";
 import { useSpotlight } from "./InteractiveSpotlight";
 
@@ -14,6 +15,7 @@ type FeatureCardProps = {
 };
 
 export default function FeatureCard({ icon: Icon, title, text, to, href, action, tone = "violet" }: FeatureCardProps) {
+  const { t } = useTranslation();
   const spotlight = useSpotlight();
   const className = `feature-card glass-card spotlight tone-${tone}`;
   const body = (
@@ -25,7 +27,7 @@ export default function FeatureCard({ icon: Icon, title, text, to, href, action,
       <p>{text}</p>
       {to || href ? (
         <span className="feature-link">
-          {action ?? "Open"} <ArrowRight />
+          {action ?? t("Open")} <ArrowRight />
         </span>
       ) : null}
     </>

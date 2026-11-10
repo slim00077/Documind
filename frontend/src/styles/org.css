@@ -75,3 +75,24 @@
 @media (max-width: 1600px) { .search-shortcut .sc-label { display: none; } .search-shortcut { padding-inline: 10px; } }
 @media (max-width: 1520px) { .topnav-link { padding: 0 9px; gap: 6px; } .topbar-inner { gap: 16px; } }
 @media (max-width: 1560px) { .topnav-link svg { display: none; } .ws-label { max-width: 120px; } }
+/* The bar is capped at 1320px, so wide screens get no extra room: keep the compact navigation at
+   every width (it used to switch back to icons + "Search Ctrl K" above 1600px and clip its last
+   links). This also leaves room for the language picker and longer French labels. */
+.topnav-link { padding: 0 7px; gap: 6px; }
+.topnav-link svg { display: none; }
+.search-shortcut .sc-label { display: none; }
+.search-shortcut { padding-inline: 10px; }
+.topbar-inner { gap: 12px; }
+.topbar-actions { gap: 6px; }
+/* Phones: the workspace switcher shows its icon only so the header fits (it keeps its aria-label) */
+@media (max-width: 480px) { .workspace-switcher .ws-label { display: none; } .topbar-inner { gap: 8px; } .topbar-actions { gap: 4px; } }
+/* 981-1279px: the app navigation (up to 7 links + actions) no longer fits the bar in any language,
+   so it moves into the same menu drawer used on tablets and phones instead of being clipped. */
+@media (min-width: 981px) and (max-width: 1279px) {
+  .app-topbar .topnav { display: none; }
+  .app-topbar .menu-toggle { display: grid; }
+  .app-topbar ~ .nav-drawer { position: fixed; z-index: 39; inset: var(--nav-h) 0 0 0; display: block; padding: 16px; overflow-y: auto; background: var(--bg); animation: pop-in .15s ease; }
+  .app-topbar ~ .nav-drawer .topnav-link { display: flex; width: 100%; height: 48px; font-size: 1rem; padding: 0 14px; }
+  .app-topbar ~ .nav-drawer .nav-drawer-actions { display: grid; gap: 10px; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border-soft); }
+  .app-topbar ~ .nav-drawer .nav-drawer-actions .button { width: 100%; }
+}
