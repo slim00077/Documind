@@ -11,7 +11,9 @@ export type ConversationStreamEvent =
       type: "done";
       message: {
         id: number;
-        role: "assistant";
+        conversationId: number;
+        // Same shape as GET /conversations/:id messages, so the client renders citations at once.
+        role: typeof MessageRole.ASSISTANT;
         content: string;
         sources: AssistantSource[];
         createdAt: Date;
@@ -201,7 +203,8 @@ export class ConversationService {
 
     return {
       id: assistantMessage.id,
-      role: "assistant" as const,
+      conversationId: conversation.id,
+      role: MessageRole.ASSISTANT,
       content: assistantMessage.content,
       sources: result.sources as AssistantSource[],
       createdAt: assistantMessage.createdAt,
@@ -286,7 +289,8 @@ export class ConversationService {
 
     return {
       id: assistantMessage.id,
-      role: "assistant" as const,
+      conversationId: conversation.id,
+      role: MessageRole.ASSISTANT,
       content: assistantMessage.content,
       sources,
       createdAt: assistantMessage.createdAt,
